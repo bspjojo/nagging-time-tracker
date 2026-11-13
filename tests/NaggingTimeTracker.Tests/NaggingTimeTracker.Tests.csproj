@@ -17,6 +17,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The App's tray icons, so TrayIconSelectorTests can check the set is complete. -->
+    <None Include="..\..\src\NaggingTimeTracker.App\Assets\tray\*.ico" Link="tray\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\NaggingTimeTracker.Core\NaggingTimeTracker.Core.csproj" />
     <ProjectReference Include="..\..\src\NaggingTimeTracker.Data\NaggingTimeTracker.Data.csproj" />
   </ItemGroup>

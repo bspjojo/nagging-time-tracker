@@ -1,0 +1,192 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.QuickPanelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:NaggingTimeTracker.App.ViewModels"
+        AutomationProperties.AutomationId="QuickPanel"
+        Title="Nagging Time Tracker"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="False"
+        Topmost="True" ShowInTaskbar="False"
+        Width="360" SizeToContent="Height"
+        BorderThickness="1" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style x:Key="Subtle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource SubtleBrush}" />
+        </Style>
+        <Style x:Key="RowButton" TargetType="Button">
+            <Setter Property="Padding" Value="8,2" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="14,12">
+
+            <!-- Running -->
+            <TextBlock Text="Running" Style="{StaticResource SectionHeader}" />
+            <Border Background="{StaticResource ParallelBackgroundBrush}" Padding="8,4" Margin="0,0,0,6"
+                    Visibility="{Binding ShowParallelBanner, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding ParallelBannerText}" FontWeight="Bold"
+                           Foreground="{StaticResource ParallelBrush}"
+                           AutomationProperties.AutomationId="QuickPanel.ParallelBanner" />
+            </Border>
+            <TextBlock Text="Nothing running" AutomationProperties.AutomationId="QuickPanel.NothingRunning">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Subtle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasRunning}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <ItemsControl ItemsSource="{Binding Running}" AutomationProperties.AutomationId="QuickPanel.RunningList">
+                <!-- The row id goes on the item container: it is what UI Automation exposes per item. -->
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RunningRow" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:RunningRowViewModel}">
+                        <Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                                BorderThickness="0,0,0,1" Padding="0,4,0,6">
+                            <StackPanel>
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Stop" Style="{StaticResource RowButton}"
+                                            AutomationProperties.AutomationId="QuickPanel.RunningRow.StopButton"
+                                            Command="{Binding DataContext.StopCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button DockPanel.Dock="Right" Content="Keep only this" Style="{StaticResource RowButton}"
+                                            AutomationProperties.AutomationId="QuickPanel.RunningRow.KeepOnlyButton"
+                                            Visibility="{Binding ShowKeepOnly, Converter={StaticResource BoolToVisibility}}"
+                                            Command="{Binding DataContext.KeepOnlyCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" />
+                                    <TextBlock DockPanel.Dock="Right" Text="{Binding Elapsed}" VerticalAlignment="Center"
+                                               FontFamily="Consolas" Margin="6,0,0,0"
+                                               AutomationProperties.AutomationId="QuickPanel.RunningRow.Elapsed" />
+                                    <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                               AutomationProperties.AutomationId="QuickPanel.RunningRow.Label" />
+                                </DockPanel>
+                                <TextBlock Text="{Binding OverlapReason}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                           AutomationProperties.AutomationId="QuickPanel.RunningRow.OverlapReason">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource Subtle}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding OverlapReason}" Value="{x:Null}">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBox Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,0"
+                                         AcceptsReturn="False" MaxLines="1" TextWrapping="NoWrap"
+                                         ToolTip="Notes"
+                                         AutomationProperties.AutomationId="QuickPanel.RunningRow.Notes"
+                                         LostKeyboardFocus="RunningNotes_LostKeyboardFocus" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Start new -->
+            <TextBlock Text="Start new" Style="{StaticResource SectionHeader}" Margin="0,14,0,6" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.Resources>
+                    <Style TargetType="Label">
+                        <Setter Property="Padding" Value="0,0,8,0" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                    </Style>
+                </Grid.Resources>
+
+                <Label Grid.Row="0" Content="_Customer" Target="{Binding ElementName=CustomerCombo}" />
+                <ComboBox x:Name="CustomerCombo" Grid.Row="0" Grid.Column="1" Margin="0,2"
+                          IsEditable="True" IsTextSearchEnabled="True"
+                          ItemsSource="{Binding CustomerNames}"
+                          Text="{Binding CustomerText, UpdateSourceTrigger=PropertyChanged}"
+                          AutomationProperties.AutomationId="QuickPanel.CustomerCombo" />
+
+                <Label Grid.Row="1" Content="_Task type" Target="{Binding ElementName=TaskTypeCombo}" />
+                <ComboBox x:Name="TaskTypeCombo" Grid.Row="1" Grid.Column="1" Margin="0,2"
+                          IsEditable="True" IsTextSearchEnabled="True"
+                          ItemsSource="{Binding TaskTypeNames}"
+                          Text="{Binding TaskTypeText, UpdateSourceTrigger=PropertyChanged}"
+                          AutomationProperties.AutomationId="QuickPanel.TaskTypeCombo" />
+
+                <Label Grid.Row="2" Content="_Link" Target="{Binding ElementName=LinkBox}" />
+                <TextBox x:Name="LinkBox" Grid.Row="2" Grid.Column="1" Margin="0,2"
+                         Text="{Binding ExternalLinkText, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="QuickPanel.LinkBox" />
+
+                <Label Grid.Row="3" Content="_Notes" Target="{Binding ElementName=NotesBox}" />
+                <TextBox x:Name="NotesBox" Grid.Row="3" Grid.Column="1" Margin="0,2"
+                         Text="{Binding NotesText, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="QuickPanel.NotesBox" />
+            </Grid>
+            <DockPanel Margin="0,6,0,0">
+                <Button DockPanel.Dock="Right" Content="_Start" IsDefault="True" Padding="16,3"
+                        Command="{Binding StartCommand}"
+                        AutomationProperties.AutomationId="QuickPanel.StartButton" />
+                <TextBlock Text="{Binding RequiredError}" Foreground="{StaticResource ErrorBrush}"
+                           VerticalAlignment="Center" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="QuickPanel.RequiredError" />
+            </DockPanel>
+
+            <!-- Recent -->
+            <TextBlock Text="Recent" Style="{StaticResource SectionHeader}" Margin="0,14,0,6" />
+            <TextBlock Text="No recent entries" AutomationProperties.AutomationId="QuickPanel.NoRecent">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Subtle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasRecent}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <ItemsControl ItemsSource="{Binding Recent}" AutomationProperties.AutomationId="QuickPanel.RecentList">
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RecentRow" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:RecentRowViewModel}">
+                        <DockPanel Margin="0,2">
+                            <Button DockPanel.Dock="Right" Content="Continue" Style="{StaticResource RowButton}"
+                                    AutomationProperties.AutomationId="QuickPanel.RecentRow.ContinueButton"
+                                    Command="{Binding DataContext.ContinueCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}" />
+                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding Label}"
+                                       AutomationProperties.AutomationId="QuickPanel.RecentRow.Label" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

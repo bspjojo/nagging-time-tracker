@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped (see [plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phases 2–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phases 3–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -71,7 +71,7 @@ There is **one unit/integration test project**, plus the UI test project (§10).
 
 **Automation IDs:** every interactive control in every window sets `AutomationProperties.AutomationId="<Window>.<Control>"`, e.g. `QuickPanel.CustomerCombo` or `QuickPanel.StartButton`. This applies from Phase 2 onward, so the UI tests (§10) never need to search by display text.
 
-**Command-line switches** (`App/StartupOptions.cs`, parsed in `App.OnStartup`; mainly for the UI tests, all optional):
+**Command-line switches** (`Core/Startup/StartupOptions.cs`, parsed in `App.OnStartup`; mainly for the UI tests, all optional). The parser and the single-instance name derivation (`Core/Startup/InstanceNames.cs`) live in Core so the `net10.0` test project can test them:
 
 - `--data-dir <path>` — overrides the `%LOCALAPPDATA%\NaggingTimeTracker` root used by `DataPaths`. It also suffixes the single-instance names (§4) with the first 8 hex chars of a SHA-256 of the full path, so a test instance never collides with the user's real one.
 - `--show quick-panel|entries|settings|export` — opens that window once startup finishes.
@@ -181,6 +181,7 @@ The interfaces live in `Core/Abstractions/`, so Core and its services never refe
 - `IEntryRepository`:
   - `GetRunning()`
   - `GetById(id)`
+  - `GetLatestStarted()` — the most recently **started** entry, running or stopped (ties broken by the higher id). Used for the start form's defaults (§3).
   - `GetRecentStopped(n)` — the `n` stopped entries with the latest `stop_utc`, newest first.
   - `GetRecentDistinct(n)` — for the quick panel's Recent section (§4.2): the newest stopped entry of each distinct `(customer_id, task_type_id, external_link)` combination, newest `stop_utc` first, at most `n`. Implemented as: load the 200 most recent stopped entries ordered by `stop_utc DESC`, de-duplicate in memory by that key keeping the first, then take `n`.
   - `Query(EntryFilter)` — `EntryFilter` holds `FromUtc`/`ToUtc` (half-open range on `start_utc`), optional customer id, optional task type id, and optional text (`LIKE` on `notes` or `external_link`). Callers convert local-date presets to UTC day boundaries with `TimeProvider.LocalTimeZone`. A UI "to" date is **inclusive**, so `ToUtc` is the start of the local day *after* it. An entry belongs to the local day it **started** on, even if it spans midnight. This logic lives in one helper, `Core/Time/LocalDateRange.cs`, `ToUtcRange(DateOnly from, DateOnly toInclusive, TimeZoneInfo tz) → (FromUtc, ToUtc)`, which both the Entries and Export windows use.
@@ -212,7 +213,13 @@ The interfaces live in `Core/Abstractions/`, so Core and its services never refe
 | `Delete(entryId)` | Deletes the entry (`continued_from_id` references become `NULL` via FK). |
 | `Save(Entry)` | Used by the editor (§5). Throws `ArgumentException` unless `stop > start` when stop is set. Throws `InvalidOperationException` when a new entry (id 0) has no stop, or when an existing entry's stop is null but the stored row is already stopped (it was stopped elsewhere while the editor was open). Trims `external_link` (blank → `NULL`), sets `updated_utc`, then updates or inserts. |
 
-Every mutating method raises `RunningEntriesChanged`. The tray, the quick panel and the reminder engine subscribe to it.
+**Return shapes** (settled in [plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md) §2.2):
+- `Stop` returns `StopResult?`: `null` for a missing id, and a no-op (no write, no event) for an already-stopped entry.
+- `StopAt` returns `Entry?`: `null` if the entry is missing or not running.
+- `UpdateNotes` and `Delete` return `bool`.
+- `ContinueLast` takes the same `confirmedConcurrent` / `overlapReason` parameters as `Continue`.
+
+Every method that changed a row raises `RunningEntriesChanged`. Bulk stops raise it once; no-ops don't raise it. The tray, the quick panel and the reminder engine subscribe to it.
 
 `Core/Services/CatalogService.cs` — `GetOrCreateCustomer(name)` and `GetOrCreateTaskType(name)`. They trim the name and reject empty input with `ArgumentException`. A case-insensitive match is returned (un-archiving it if it was archived); otherwise a new row is inserted. Every picker (§4, §5) resolves its typed text through these at submit time, so typing a new customer name simply creates it. For the Settings lists (§5) it also has `RenameCustomer(id, newName)` / `RenameTaskType(id, newName)`, which trim, reject empty input, and return `RenameResult.NameTaken` when another row already has that name (case-insensitive) instead of letting the unique index throw. It also has `SetCustomerArchived(id, bool)` / `SetTaskTypeArchived(id, bool)`.
 
@@ -241,10 +248,10 @@ Every mutating method raises `RunningEntriesChanged`. The tray, the quick panel 
 **Tooltip:** a WPF `TrayToolTip` (H.NotifyIcon's rich tooltip, which avoids the 128-char limit of the native tooltip). It shows:
 
 - 0 running: *Not tracking*
-- 1 running: *Dev Work · Acme — 1h 23m*
+- 1 running: *Acme · Dev Work — 1h 23m* (customer first, as everywhere else)
 - ≥2 running: a bold amber header *"⚠ 2 timers running in parallel"*, then one line per running entry (`customer · type — elapsed`)
 
-It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`.
+It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The native `ToolTipText` carries the same lines, fitted to its 127-character limit (`Core/Tray/TrayToolTipText.cs`). Windows 11 often shows the native tooltip instead of the rich one.
 
 **Elsewhere when ≥2 are running:**
 
@@ -427,7 +434,7 @@ Entries started during the idle period (`start_utc ≥ idleStart`) are left unto
 | `idle_enabled` / `idle_threshold_min` | `true` / `10` |
 | `heartbeat_utc`, `reminders_paused_until_utc`, `not_working_until_utc`, `last_backup_date` | unset |
 
-Missing keys fall back to these defaults. `SettingsService` raises `SettingsChanged`; the engine reads the current settings every tick, so changes apply without a restart.
+The four state keys in the last row aren't part of `AppSettings`. They're read and written through `SettingsService.GetInstant` / `SetInstant` (epoch ms; `null` removes the key), and these don't raise `SettingsChanged`. That way, saving the user's settings can never overwrite a heartbeat or pause written meanwhile. Missing or unparsable keys fall back to these defaults. `SettingsService` raises `SettingsChanged`; the engine reads the current settings every tick, so changes apply without a restart.
 
 ---
 
@@ -554,20 +561,20 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] `tests/.../Data/EpochMsConverterTests.cs`: a ms-truncated value round-trips exactly, including a non-UTC input offset (stored as the same instant, read back with offset zero); the column type is `INTEGER`; a `Query` date-range filter and an `OrderBy(StartUtc)` both translate to SQL without client evaluation (`ToQueryString()` contains the comparison) and return the right rows
 
 ### Phase 2 — Tracking service + tray
-- [ ] `Core/Services/CatalogService.cs` and `Core/Services/TrackingService.cs` per §3 (including `StopAllExcept`, `UpdateNotes`, and the `Save` guards)
-- [ ] `Core/Settings/AppSettings.cs` + `SettingsService.cs` per §8 (moved here from a later phase because the tray's Pause reminders submenu writes `reminders_paused_until_utc` through it)
-- [ ] `tests/.../Core/SettingsServiceTests.cs`: defaults for missing keys; round-trip; invariant culture under `de-DE`
-- [ ] `tests/.../Core/TrackingServiceTests.cs` (`FakeTimeProvider`): start/stop; start trims the link and stores a blank one as `NULL`; `StopAllExcept` leaves only the given entry running; `UpdateNotes` on an entry stopped in the meantime keeps it stopped; `Save` rejects a new entry without stop, rejects re-opening an entry stopped in the DB, and rejects stop ≤ start; `NeedsConfirmation` when another is running; confirmed start stores `overlap_reason`; continuing a stopped entry while another runs needs confirmation; continuing a running entry stops it, needs no confirmation, and copies `overlap_reason`; continue copies customer/type/link with empty notes and sets `continued_from_id`; `TooShort` under 1 min; stop clamp when `now ≤ start`; `StopAt` rejects `≤ start`; `ContinueLast` on an empty DB
-- [ ] `tests/.../Core/CatalogServiceTests.cs`: trims; case-insensitive match; un-archives; empty name throws; rename to another row's name in different case → `NameTaken`; rename to a case change of its own name succeeds; archive/unarchive toggles `GetActive`
-- [ ] `App/App.xaml(.cs)`: host wiring per §1, `ShutdownMode=OnExplicitShutdown`; `<AssemblyName>`/`<Version>` per §1
-- [ ] `App/StartupOptions.cs` (`--data-dir`, `--show`, `--no-background`) per §1; `DataPaths` accepts the override
-- [ ] `App/SingleInstance.cs` per §4
-- [ ] `tools/make-icons.ps1` + the generated `App/Assets/tray/*.ico` set from §4.1
-- [ ] `App/Tray/TrayHost.cs`: `UpdateIcon()` icon selection (`hasAttention` is always `false` until Phase 5), the rich `TrayToolTip`, and the context menu per §4 (Pause reminders submenu wired to `reminders_paused_until_utc` via `SettingsService`; it takes effect once Phase 5 lands). Menu items, quick-panel footer links and `--show` values for windows that don't exist yet (*All entries…*, *Export…*, *Settings…*) are added in the phase that builds each window (3, 4, 3), so every phase stays runnable with no dead links
-- [ ] `Core/Tray/TrayIconSelector.cs`: a pure static `Select(hasAttention, runningCount) → file name`, which `TrayHost.UpdateIcon()` calls. `tests/.../Core/TrayIconSelectorTests.cs` tests every row of the §4.1 table, including 9 and 10 → `9plus`
-- [ ] `App/Windows/QuickPanelWindow.xaml` per §4.2, including the multiple-timer banner, **Keep only this** (`StopAllExcept`), Recent via `GetRecentDistinct(5)`, the `_modalDepth` hide guard and the notes flush on `Deactivated`. Set AutomationIds on every control per §1
-- [ ] `App/Windows/ConcurrencyDialog.xaml` per §4
-- [ ] Exit confirmation when timers are running
+- [x] `Core/Services/CatalogService.cs` and `Core/Services/TrackingService.cs` per §3 (including `StopAllExcept`, `UpdateNotes`, and the `Save` guards)
+- [x] `Core/Settings/AppSettings.cs` + `SettingsService.cs` per §8 (moved here from a later phase because the tray's Pause reminders submenu writes `reminders_paused_until_utc` through it)
+- [x] `tests/.../Core/SettingsServiceTests.cs`: defaults for missing keys; round-trip; invariant culture under `de-DE`
+- [x] `tests/.../Core/TrackingServiceTests.cs` (`FakeTimeProvider`): start/stop; start trims the link and stores a blank one as `NULL`; `StopAllExcept` leaves only the given entry running; `UpdateNotes` on an entry stopped in the meantime keeps it stopped; `Save` rejects a new entry without stop, rejects re-opening an entry stopped in the DB, and rejects stop ≤ start; `NeedsConfirmation` when another is running; confirmed start stores `overlap_reason`; continuing a stopped entry while another runs needs confirmation; continuing a running entry stops it, needs no confirmation, and copies `overlap_reason`; continue copies customer/type/link with empty notes and sets `continued_from_id`; `TooShort` under 1 min; stop clamp when `now ≤ start`; `StopAt` rejects `≤ start`; `ContinueLast` on an empty DB
+- [x] `tests/.../Core/CatalogServiceTests.cs`: trims; case-insensitive match; un-archives; empty name throws; rename to another row's name in different case → `NameTaken`; rename to a case change of its own name succeeds; archive/unarchive toggles `GetActive`
+- [x] `App/App.xaml(.cs)`: host wiring per §1, `ShutdownMode=OnExplicitShutdown`; `<AssemblyName>`/`<Version>` per §1
+- [x] `Core/Startup/StartupOptions.cs` + `InstanceNames.cs` (`--data-dir`, `--show`, `--no-background`) per §1; `DataPaths` accepts the override
+- [x] `App/SingleInstance.cs` per §4
+- [x] `tools/make-icons.ps1` + the generated `App/Assets/tray/*.ico` set from §4.1
+- [x] `App/Tray/TrayHost.cs`: `UpdateIcon()` icon selection (`hasAttention` is always `false` until Phase 5), the rich `TrayToolTip`, and the context menu per §4 (Pause reminders submenu wired to `reminders_paused_until_utc` via `SettingsService`; it takes effect once Phase 5 lands). Menu items, quick-panel footer links and `--show` values for windows that don't exist yet (*All entries…*, *Export…*, *Settings…*) are added in the phase that builds each window (3, 4, 3), so every phase stays runnable with no dead links
+- [x] `Core/Tray/TrayIconSelector.cs`: a pure static `Select(hasAttention, runningCount) → file name`, which `TrayHost.UpdateIcon()` calls. `tests/.../Core/TrayIconSelectorTests.cs` tests every row of the §4.1 table, including 9 and 10 → `9plus`
+- [x] `App/Windows/QuickPanelWindow.xaml` per §4.2, including the multiple-timer banner, **Keep only this** (`StopAllExcept`), Recent via `GetRecentDistinct(5)`, the `_modalDepth` hide guard and the notes flush on `Deactivated`. Set AutomationIds on every control per §1
+- [x] `App/Windows/ConcurrencyDialog.xaml` per §4
+- [x] Exit confirmation when timers are running
 
 ### Phase 3 — Entries window + editor
 - [ ] `App/Windows/EntriesWindow.xaml` per §5, including the ⧉ column and the amber running rows from §4.1; add the *All entries…* menu item, footer link and `--show entries`

@@ -166,6 +166,26 @@ public sealed class EntryRepositoryTests : IDisposable
         Assert.Equal([otherType.Id, lowerX.Id], _db.Entries.GetRecentDistinct(2).Select(e => e.Id));
     }
 
+    [Fact]
+    public void GetLatestStarted_is_null_on_empty_db()
+    {
+        Assert.Null(_db.Entries.GetLatestStarted());
+    }
+
+    [Fact]
+    public void GetLatestStarted_returns_latest_start_running_or_stopped()
+    {
+        _db.AddEntry(_acme, H(0), null);
+        var stopped = _db.AddEntry(_globex, H(2), H(3));
+        Assert.Equal(stopped.Id, _db.Entries.GetLatestStarted()!.Id);
+
+        var running = _db.AddEntry(_acme, H(4), null);
+        Assert.Equal(running.Id, _db.Entries.GetLatestStarted()!.Id);
+
+        var tie = _db.AddEntry(_globex, H(4), H(5));
+        Assert.Equal(tie.Id, _db.Entries.GetLatestStarted()!.Id);
+    }
+
     // ---- Query / QueryViews ---------------------------------------------------------------
 
     [Fact]

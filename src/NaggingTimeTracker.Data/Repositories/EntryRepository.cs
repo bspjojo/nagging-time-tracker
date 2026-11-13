@@ -23,6 +23,14 @@ public sealed class EntryRepository(IDbContextFactory<TrackerDbContext> factory)
         return db.Entries.AsNoTracking().FirstOrDefault(e => e.Id == id);
     }
 
+    public Entry? GetLatestStarted()
+    {
+        using var db = factory.CreateDbContext();
+        return db.Entries.AsNoTracking()
+            .OrderByDescending(e => e.StartUtc).ThenByDescending(e => e.Id)
+            .FirstOrDefault();
+    }
+
     public IReadOnlyList<Entry> GetRecentStopped(int n)
     {
         using var db = factory.CreateDbContext();

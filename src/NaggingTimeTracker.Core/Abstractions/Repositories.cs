@@ -40,6 +40,9 @@ public interface IEntryRepository
 
     Entry? GetById(long id);
 
+    /// <summary>The most recently started entry, running or stopped; null on an empty DB.</summary>
+    Entry? GetLatestStarted();
+
     /// <summary>The <paramref name="n"/> stopped entries with the latest stop, newest first.</summary>
     IReadOnlyList<Entry> GetRecentStopped(int n);
 

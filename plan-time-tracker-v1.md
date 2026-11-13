@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 code complete (see [plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)).
+**Status:** In progress — Phase 1 shipped (see [plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phases 2–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 

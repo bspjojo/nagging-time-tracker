@@ -1,6 +1,6 @@
 # Phase 1 — Scaffold + Data Layer (implementation plan)
 
-**Status:** In progress — code complete (build clean, 58/58 tests green, placeholder app verified); the two commit steps remain.
+**Status:** Shipped — 2 commits (docs + README encoding; Phase 1 code). Build clean, 58/58 tests green.
 
 **Sequencing note:** this doc expands **Phase 1** of [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (§12, "Phase 1 — Scaffold + data layer") into implementable detail. It is the first phase, so nothing has to land before it. The parent plan stays the source of truth for the schema (§2), the repository contracts (§2 "Repositories"), the solution layout (§1) and the time convention (§2). Where this doc deviates from the parent, it says so under §5 "Accepted deviations from parent §2"; those deviations should be folded back into the parent's §2 once this doc is approved. Phase 2 (tracking service + tray) builds directly on the interfaces fixed here.
 
@@ -380,7 +380,7 @@ Test timestamps are fixed ms-precision `DateTimeOffset` constants (e.g. `T0 = 20
 
 ## Steps
 
-- [ ] Commit the docs first: `plan-time-tracker-v1.md`, this file, and [README.md](README.md) re-saved as UTF-8 without BOM (§1.4)
+- [x] Commit the docs first: `plan-time-tracker-v1.md`, this file, and [README.md](README.md) re-saved as UTF-8 without BOM (§1.4)
 - [x] Add `global.json` (§1.1)
 - [x] Run the §1.3 scaffold commands; delete the template files; pin the template's test packages and drop `coverlet.collector`
 - [x] Add `Directory.Build.props`, and the `.editorconfig` migrations section (§1.4); strip duplicated properties from the csprojs
@@ -395,7 +395,7 @@ Test timestamps are fixed ms-precision `DateTimeOffset` constants (e.g. `T0 = 20
 - [x] Tests: `TestDb.cs` and the eight files in §7.2
 - [x] `dotnet build` (zero warnings, with warnings as errors) and `dotnet test` (all green)
 - [x] Tick the parent's Phase 1 checklist in [plan-time-tracker-v1.md](plan-time-tracker-v1.md), add the §5 deviations to its §2, and flip this doc's Status to Shipped
-- [ ] Commit "Phase 1 — scaffold + data layer"
+- [x] Commit "Phase 1 — scaffold + data layer"
 
 ---
 

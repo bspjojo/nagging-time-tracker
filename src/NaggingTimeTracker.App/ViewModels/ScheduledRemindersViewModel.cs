@@ -78,7 +78,19 @@ public sealed partial class ScheduledRemindersViewModel : ObservableObject
     private void Add() => OpenEditor(null);
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
-    private void Edit() => OpenEditor(Selected!.Reminder);
+    private void Edit()
+    {
+        // Re-read the stored row: the row's snapshot goes stale when its On box is toggled (that
+        // saves without reloading), and the editor writes back the fields it doesn't show.
+        if (_service.GetById(Selected!.Id) is { } current)
+        {
+            OpenEditor(current);
+        }
+        else
+        {
+            Reload();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(HasSelection))]
     private void Delete()

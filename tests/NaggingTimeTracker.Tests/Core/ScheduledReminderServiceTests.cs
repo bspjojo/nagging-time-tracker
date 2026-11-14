@@ -80,4 +80,22 @@ public sealed class ScheduledReminderServiceTests : IDisposable
         Assert.Equal(Noon.AddHours(5), stored.LastFiredUtc);
         Assert.False(_service.SetEnabled(999, true));
     }
+
+    [Fact]
+    public void GetById_returns_the_stored_row_after_SetEnabled()
+    {
+        var saved = _service.Save(New(16));
+        Assert.True(_service.SetEnabled(saved.Id, false));
+
+        // The editor saves what GetById returns, so a stale snapshot can't re-enable it.
+        var current = _service.GetById(saved.Id);
+        Assert.NotNull(current);
+        Assert.False(current.Enabled);
+        _service.Save(current with { Title = "Renamed" });
+
+        var stored = Assert.Single(_service.GetAll());
+        Assert.Equal("Renamed", stored.Title);
+        Assert.False(stored.Enabled);
+        Assert.Null(_service.GetById(999));
+    }
 }

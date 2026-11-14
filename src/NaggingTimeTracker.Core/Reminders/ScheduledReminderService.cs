@@ -13,6 +13,9 @@ public sealed class ScheduledReminderService(IReminderRepository repo, TimeProvi
 {
     public IReadOnlyList<ScheduledReminder> GetAll() => repo.GetAll();
 
+    /// <summary>The stored reminder, or null if it no longer exists.</summary>
+    public ScheduledReminder? GetById(long id) => repo.GetById(id);
+
     public ScheduledReminder Save(ScheduledReminder r)
     {
         ArgumentNullException.ThrowIfNull(r);

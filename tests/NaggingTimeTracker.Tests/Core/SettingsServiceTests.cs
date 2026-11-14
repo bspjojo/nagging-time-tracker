@@ -142,4 +142,107 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Null(_service.GetInstant(SettingKeys.HeartbeatUtc));
     }
+
+    [Fact]
+    public void Load_reads_the_store_once()
+    {
+        var store = new CountingStore();
+        var service = new SettingsService(store);
+
+        var first = service.Load();
+        var reads = store.Gets;
+        var second = service.Load();
+
+        Assert.Equal(9, reads);
+        Assert.Equal(reads, store.Gets);
+        Assert.Same(first, second);
+    }
+
+    [Fact]
+    public void Save_then_Load_returns_the_saved_values_without_rereading()
+    {
+        var store = new CountingStore();
+        var service = new SettingsService(store);
+        Assert.Equal(new AppSettings(), service.Load());
+        var reads = store.Gets;
+
+        service.Save(Custom);
+
+        Assert.Equal(Custom, service.Load());
+        Assert.Equal(reads, store.Gets);
+    }
+
+    [Fact]
+    public void Cached_times_match_what_the_store_holds()
+    {
+        var store = new CountingStore();
+        var service = new SettingsService(store);
+
+        service.Save(Custom with { WorkStart = new TimeOnly(8, 15, 42), WorkEnd = new TimeOnly(16, 45, 0, 500) });
+
+        Assert.Equal(new SettingsService(store).Load(), service.Load());
+        Assert.Equal(new TimeOnly(8, 15), service.Load().WorkStart);
+    }
+
+    [Fact]
+    public void A_failed_Save_makes_the_next_Load_reread_the_store()
+    {
+        var store = new CountingStore();
+        var service = new SettingsService(store);
+        service.Load();
+        store.FailOn = SettingKeys.CheckinEnabled;
+
+        Assert.Throws<InvalidOperationException>(() => service.Save(Custom));
+        store.FailOn = null;
+        var reads = store.Gets;
+
+        var loaded = service.Load();
+
+        Assert.Equal(reads + 9, store.Gets);
+        Assert.Equal(new SettingsService(store).Load(), loaded);
+    }
+
+    [Fact]
+    public void GetInstant_reads_the_store_every_time()
+    {
+        var store = new CountingStore();
+        var service = new SettingsService(store);
+        var at = TestDb.T0;
+        service.SetInstant(SettingKeys.RemindersPausedUntilUtc, at);
+
+        Assert.Equal(at, service.GetInstant(SettingKeys.RemindersPausedUntilUtc));
+        store.Set(SettingKeys.RemindersPausedUntilUtc,
+            at.AddHours(1).ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture));
+        Assert.Equal(at.AddHours(1), service.GetInstant(SettingKeys.RemindersPausedUntilUtc));
+
+        Assert.Equal(2, store.Gets);
+    }
+
+    /// <summary>An in-memory store that counts reads and can fail a chosen write.</summary>
+    private sealed class CountingStore : ISettingsStore
+    {
+        private readonly Dictionary<string, string> _values = [];
+
+        public int Gets { get; private set; }
+
+        public string? FailOn { get; set; }
+
+        public string? Get(string key)
+        {
+            Gets++;
+            return _values.GetValueOrDefault(key);
+        }
+
+        public void Set(string key, string value)
+        {
+            if (key == FailOn)
+            {
+                throw new InvalidOperationException("write failed");
+            }
+
+            _values[key] = value;
+        }
+
+        public void Remove(string key) => _values.Remove(key);
+    }
 }

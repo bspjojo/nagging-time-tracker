@@ -5,7 +5,10 @@ namespace NaggingTimeTracker.Core.Settings;
 
 /// <summary>
 /// Typed access to the key/value settings store. Values are invariant-culture strings; missing
-/// or unparsable values fall back to the defaults.
+/// or unparsable values fall back to the defaults. <see cref="Load"/> is cached, because
+/// <see cref="Save"/> is the only writer of the <see cref="AppSettings"/> keys; the state keys
+/// (<see cref="GetInstant"/> / <see cref="SetInstant"/>) are written elsewhere and always read
+/// the store. Callers are all on the UI thread, so the cache needs no locking.
 /// </summary>
 public sealed class SettingsService(ISettingsStore store)
 {
@@ -15,7 +18,12 @@ public sealed class SettingsService(ISettingsStore store)
     /// <summary>Raised by <see cref="Save"/> only.</summary>
     public event EventHandler? SettingsChanged;
 
-    public AppSettings Load()
+    private AppSettings? _cached;
+
+    /// <summary>The current settings: read from the store once, then kept up to date by <see cref="Save"/>.</summary>
+    public AppSettings Load() => _cached ??= Read();
+
+    private AppSettings Read()
     {
         var d = new AppSettings();
         return new AppSettings
@@ -41,6 +49,8 @@ public sealed class SettingsService(ISettingsStore store)
         ArgumentOutOfRangeException.ThrowIfLessThan(s.CheckinIntervalMin, 1, nameof(s.CheckinIntervalMin));
         ArgumentOutOfRangeException.ThrowIfLessThan(s.IdleThresholdMin, 1, nameof(s.IdleThresholdMin));
 
+        // Dropped first, so a write that fails partway leaves the next Load to re-read the store.
+        _cached = null;
         store.Set(SettingKeys.WorkDaysMask, s.WorkDaysMask.ToString(Inv));
         store.Set(SettingKeys.WorkStart, s.WorkStart.ToString(TimeFormat, Inv));
         store.Set(SettingKeys.WorkEnd, s.WorkEnd.ToString(TimeFormat, Inv));
@@ -50,6 +60,9 @@ public sealed class SettingsService(ISettingsStore store)
         store.Set(SettingKeys.CheckinIntervalMin, s.CheckinIntervalMin.ToString(Inv));
         store.Set(SettingKeys.IdleEnabled, Bool(s.IdleEnabled));
         store.Set(SettingKeys.IdleThresholdMin, s.IdleThresholdMin.ToString(Inv));
+
+        // What a re-read would return: times are stored to the minute.
+        _cached = s with { WorkStart = ToMinute(s.WorkStart), WorkEnd = ToMinute(s.WorkEnd) };
         SettingsChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -76,6 +89,8 @@ public sealed class SettingsService(ISettingsStore store)
     }
 
     private static string Bool(bool b) => b ? "true" : "false";
+
+    private static TimeOnly ToMinute(TimeOnly t) => new(t.Hour, t.Minute);
 
     private int ReadInt(string key, int fallback) =>
         int.TryParse(store.Get(key), NumberStyles.Integer, Inv, out var v) ? v : fallback;

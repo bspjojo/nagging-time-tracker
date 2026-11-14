@@ -242,10 +242,67 @@ public sealed class ReminderEngineTests
     {
         var nag = Assert.Single(Kind(State(At(60), reminders: [Reminder(10, 0)], settings: NoNotTracking), NagKind.Scheduled));
         _engine.SnoozeScheduled(nag, At(75));
+        IReadOnlyList<ScheduledReminder> fired = [Reminder(10, 0, lastFired: At(60))];
 
-        Assert.Empty(Kind(State(At(74), settings: NoNotTracking), NagKind.Scheduled));
-        Assert.Same(nag, Assert.Single(Kind(State(At(75), settings: NoNotTracking), NagKind.Scheduled)));
-        Assert.Empty(Kind(State(At(90), settings: NoNotTracking), NagKind.Scheduled));
+        Assert.Empty(Kind(State(At(74), reminders: fired, settings: NoNotTracking), NagKind.Scheduled));
+        Assert.Same(nag, Assert.Single(Kind(State(At(75), reminders: fired, settings: NoNotTracking), NagKind.Scheduled)));
+        Assert.Empty(Kind(State(At(90), reminders: fired, settings: NoNotTracking), NagKind.Scheduled));
+    }
+
+    [Fact]
+    public void Snoozed_scheduled_nag_is_dropped_when_its_reminder_is_deleted()
+    {
+        var nag = Assert.Single(Kind(State(At(60), reminders: [Reminder(10, 0)], settings: NoNotTracking), NagKind.Scheduled));
+        _engine.SnoozeScheduled(nag, At(75));
+
+        Assert.Empty(Kind(State(At(75), reminders: [], settings: NoNotTracking), NagKind.Scheduled));
+    }
+
+    [Fact]
+    public void Snoozed_scheduled_nag_is_dropped_when_its_reminder_is_disabled()
+    {
+        var nag = Assert.Single(Kind(State(At(60), reminders: [Reminder(10, 0)], settings: NoNotTracking), NagKind.Scheduled));
+        _engine.SnoozeScheduled(nag, At(75));
+
+        Assert.Empty(Kind(State(At(75), reminders: [Reminder(10, 0, lastFired: At(60), enabled: false)], settings: NoNotTracking), NagKind.Scheduled));
+    }
+
+    [Fact]
+    public void Dropped_snooze_stays_gone_after_re_enabling_but_the_next_occurrence_fires()
+    {
+        var nag = Assert.Single(Kind(State(At(60), reminders: [Reminder(10, 0)], settings: NoNotTracking), NagKind.Scheduled));
+        _engine.SnoozeScheduled(nag, At(75));
+        Assert.Empty(Kind(State(At(75), reminders: [Reminder(10, 0, lastFired: At(60), enabled: false)], settings: NoNotTracking), NagKind.Scheduled));
+
+        IReadOnlyList<ScheduledReminder> reEnabled = [Reminder(10, 0, lastFired: At(60))];
+        Assert.Empty(Kind(State(At(76), reminders: reEnabled, settings: NoNotTracking), NagKind.Scheduled));
+        Assert.Empty(Kind(State(At(120), reminders: reEnabled, settings: NoNotTracking), NagKind.Scheduled));
+
+        // Tomorrow's 10:00 is a fresh nag from the reminder, not the dropped snapshot.
+        var tomorrow = Assert.Single(Kind(State(At(24 * 60 + 60), reminders: reEnabled, settings: NoNotTracking), NagKind.Scheduled));
+        Assert.NotSame(nag, tomorrow);
+    }
+
+    [Theory]
+    [InlineData("paused")]
+    [InlineData("idle")]
+    [InlineData("prompt")]
+    public void Snoozed_scheduled_nag_waits_out_suppression_instead_of_being_dropped(string why)
+    {
+        var nag = Assert.Single(Kind(State(At(60), reminders: [Reminder(10, 0)], settings: NoNotTracking), NagKind.Scheduled));
+        _engine.SnoozeScheduled(nag, At(75));
+
+        // Suppressed with the reminder absent: Evaluate returns before the snooze check runs.
+        var suppressed = State(At(75), reminders: [], settings: NoNotTracking);
+        suppressed = why switch
+        {
+            "paused" => suppressed with { PausedUntilUtc = At(80) },
+            "idle" => suppressed with { IsUserIdle = true },
+            _ => suppressed with { IsPromptOpen = true },
+        };
+        Assert.Empty(_engine.Evaluate(suppressed));
+
+        Assert.Same(nag, Assert.Single(Kind(State(At(80), reminders: [Reminder(10, 0, lastFired: At(60))], settings: NoNotTracking), NagKind.Scheduled)));
     }
 
     // ---- Suppression --------------------------------------------------------------------------

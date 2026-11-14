@@ -35,12 +35,19 @@ public sealed class ReminderEngine(DateTimeOffset appStartUtc)
             _lastCheckIn.Remove(id);
         }
 
+        // A snoozed nag replays as the snapshot it was, but only while its reminder still exists
+        // and is enabled (Reminders holds disabled ones too). Otherwise the snooze is dropped.
+        var enabledIds = s.Reminders.Where(r => r.Enabled).Select(r => r.Id).ToHashSet();
         var nags = new List<Nag>();
         for (var i = _snoozedScheduled.Count - 1; i >= 0; i--)
         {
             if (_snoozedScheduled[i].Until <= now)
             {
-                nags.Insert(0, _snoozedScheduled[i].Nag);
+                if (_snoozedScheduled[i].Nag.ReminderId is { } id && enabledIds.Contains(id))
+                {
+                    nags.Insert(0, _snoozedScheduled[i].Nag);
+                }
+
                 _snoozedScheduled.RemoveAt(i);
             }
         }
@@ -74,7 +81,10 @@ public sealed class ReminderEngine(DateTimeOffset appStartUtc)
         }
     }
 
-    /// <summary>Re-shows the same scheduled nag at <paramref name="untilUtc"/>.</summary>
+    /// <summary>
+    /// Re-shows the same scheduled nag at <paramref name="untilUtc"/>, if its reminder is still
+    /// enabled then; a snooze whose reminder was deleted or disabled is dropped.
+    /// </summary>
     public void SnoozeScheduled(Nag nag, DateTimeOffset untilUtc)
     {
         ArgumentNullException.ThrowIfNull(nag);

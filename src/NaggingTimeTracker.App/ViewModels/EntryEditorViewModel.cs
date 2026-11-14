@@ -317,6 +317,12 @@ public sealed partial class EntryEditorViewModel : ObservableObject
             }
         }
 
+        // The rule lives in Core; asking here shows it as the user types, not only on Save.
+        if (startUtc is { } s && _tracking.FutureTimeError(s, stopUtc) is { } future)
+        {
+            return future;
+        }
+
         if (string.IsNullOrWhiteSpace(CustomerText) || string.IsNullOrWhiteSpace(TaskTypeText))
         {
             return "Customer and task type are required.";

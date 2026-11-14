@@ -362,6 +362,7 @@ public sealed class TrackingServiceTests : IDisposable
     public void Save_guards()
     {
         var running = StartAcme();
+        Advance(TimeSpan.FromHours(2)); // so the stops below aren't in the future
         Assert.Throws<ArgumentException>(() => _tracking.Save(running with { StopUtc = T0 }));
         Assert.Throws<InvalidOperationException>(() =>
             _tracking.Save(new Entry { CustomerId = _acme, TaskTypeId = 1, StartUtc = T0 }));
@@ -372,6 +373,79 @@ public sealed class TrackingServiceTests : IDisposable
         Advance(TimeSpan.FromMinutes(5));
         _tracking.Stop(running.Id);
         Assert.Throws<InvalidOperationException>(() => _tracking.Save(running with { Notes = "stale" }));
+    }
+
+    // ---- Save: no future times ------------------------------------------------------------
+
+    private Entry Manual(DateTimeOffset start, DateTimeOffset stop) =>
+        new() { CustomerId = _acme, TaskTypeId = 1, StartUtc = start, StopUtc = stop };
+
+    // UTC+05:30, so the local minute is computed in a zone that isn't UTC.
+    private void UseIndiaTime() => _time.SetLocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("India Standard Time"));
+
+    private void AssertRejectedAsFuture(Entry e)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => _tracking.Save(e));
+        Assert.StartsWith("Times can't be in the future.", ex.Message, StringComparison.Ordinal);
+        Assert.Equal(0, _events);
+    }
+
+    [Fact]
+    public void Save_rejects_a_future_start()
+    {
+        AssertRejectedAsFuture(Manual(T0.AddMinutes(5), T0.AddMinutes(10)));
+        Assert.Null(_tracking.LastStopped());
+    }
+
+    [Fact]
+    public void Save_rejects_a_future_stop()
+    {
+        AssertRejectedAsFuture(Manual(T0.AddHours(-1), T0.AddHours(8)));
+        Assert.Null(_tracking.LastStopped());
+    }
+
+    [Fact]
+    public void Save_rejects_a_future_start_on_a_running_entry()
+    {
+        var running = StartAcme();
+        _events = 0;
+        AssertRejectedAsFuture(running with { StartUtc = T0.AddMinutes(30) });
+        Assert.Equal(T0, _db.Entries.GetById(running.Id)!.StartUtc);
+    }
+
+    [Fact]
+    public void Save_accepts_a_stop_inside_the_current_local_minute()
+    {
+        UseIndiaTime();
+        Advance(TimeSpan.FromSeconds(30)); // 14:30:30 local
+
+        var saved = _tracking.Save(Manual(T0.AddHours(-1), T0.AddSeconds(59.999))); // 14:30:59.999
+
+        Assert.Equal(T0.AddSeconds(59.999), _db.Entries.GetById(saved.Id)!.StopUtc);
+    }
+
+    [Fact]
+    public void Save_accepts_times_of_exactly_now()
+    {
+        Advance(TimeSpan.FromMinutes(90));
+        var now = T0.AddMinutes(90);
+
+        _tracking.Save(Manual(T0, now));
+        var running = StartAcme();
+        var saved = _tracking.Save(running with { StartUtc = now, Notes = "edited while running" });
+
+        Assert.Null(saved.StopUtc);
+        Assert.Equal(now, _db.Entries.GetById(running.Id)!.StartUtc);
+    }
+
+    [Fact]
+    public void Save_rejects_a_time_at_the_start_of_the_next_local_minute()
+    {
+        UseIndiaTime();
+        Advance(TimeSpan.FromSeconds(30)); // 14:30:30 local; the future starts at 14:31:00
+
+        AssertRejectedAsFuture(Manual(T0.AddHours(-1), T0.AddMinutes(1)));
+        Assert.Null(_tracking.FutureTimeError(T0.AddHours(-1), T0.AddMinutes(1).AddMilliseconds(-1)));
     }
 
     // ---- Events ---------------------------------------------------------------------------

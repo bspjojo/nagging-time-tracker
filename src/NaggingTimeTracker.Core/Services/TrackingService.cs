@@ -163,6 +163,17 @@ public sealed class TrackingService(IEntryRepository entries, TimeProvider time)
         return deleted;
     }
 
+    /// <summary>
+    /// The editor's "no future times" rule, or null when the times are fine. A start, or a stop
+    /// when set, is in the future from the first instant of the next local minute on, so a time
+    /// typed as the current HH:mm is allowed.
+    /// </summary>
+    public string? FutureTimeError(DateTimeOffset startUtc, DateTimeOffset? stopUtc)
+    {
+        var future = StartOfNextLocalMinute();
+        return startUtc >= future || stopUtc >= future ? "Times can't be in the future." : null;
+    }
+
     /// <summary>Saves an edited or manually created entry (the editor).</summary>
     public Entry Save(Entry e)
     {
@@ -170,6 +181,11 @@ public sealed class TrackingService(IEntryRepository entries, TimeProvider time)
         if (e.StopUtc is { } stop && stop <= e.StartUtc)
         {
             throw new ArgumentException("Stop must be after start.", nameof(e));
+        }
+
+        if (FutureTimeError(e.StartUtc, e.StopUtc) is { } future)
+        {
+            throw new ArgumentException(future, nameof(e));
         }
 
         var now = time.NowUtc();
@@ -237,6 +253,13 @@ public sealed class TrackingService(IEntryRepository entries, TimeProvider time)
         var stopped = stored with { StopUtc = stopUtc, UpdatedUtc = now };
         entries.Update(stopped);
         return (new StopResult(stopped, stopUtc - stored.StartUtc < TooShortThreshold), true);
+    }
+
+    // Now in local time, truncated to the minute, plus one minute; returned as UTC.
+    private DateTimeOffset StartOfNextLocalMinute()
+    {
+        var local = TimeZoneInfo.ConvertTime(time.NowUtc(), time.LocalTimeZone);
+        return local.AddTicks(-(local.Ticks % TimeSpan.TicksPerMinute)).AddMinutes(1).ToUniversalTime();
     }
 
     private static string? BlankToNull(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();

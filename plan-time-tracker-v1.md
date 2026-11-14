@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phases 7–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phase 7 shipped ([plan-phase7-polish.md](plan-phase7-polish.md)); Phases 8–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -79,7 +79,7 @@ There is **one unit/integration test project**, plus the UI test project (§10).
 
 **Time abstraction:** all services take `TimeProvider` and never call `DateTime.Now`/`UtcNow`. UTC↔local conversion always goes through `TimeProvider.LocalTimeZone`, so tests can pin a timezone (including a DST one) with `FakeTimeProvider.SetLocalTimeZone`.
 
-**Host wiring:** `App.OnStartup` builds a Generic Host (`Host.CreateApplicationBuilder`), calls `AddTrackerData(...)`, registers every service as a singleton (and every window transient), then runs, in this order: `DatabaseInitializer` (migrate + WAL, §2) → `BackupService` (§2, from Phase 7) → `StartupDowntimeCheck` (§7.3, from Phase 6; skipped under `--no-background`) → `host.StartAsync()` → the `--show` window, if any. `App.OnExit` calls `host.StopAsync()`.
+**Host wiring:** `App.OnStartup` builds a Generic Host (`Host.CreateApplicationBuilder`), calls `AddTrackerData(...)`, registers every service as a singleton (and every window transient), then runs, in this order: `DatabaseInitializer` (migrate + WAL, §2) → `BackupService` (§2; a failure is logged and startup continues) → Run-key self-heal (§8; Release builds on the default data folder only) → `StartupDowntimeCheck` (§7.3, from Phase 6; skipped under `--no-background`) → `host.StartAsync()` → the `--show` window, if any. `App.OnExit` calls `host.StopAsync()`.
 
 ---
 
@@ -171,7 +171,7 @@ Schema changes after v1 are always a new migration, never an edit to `InitialCre
 
 ### Backups
 
-`Data/BackupService.cs`: on startup, if `settings['last_backup_date']` isn't today's local date, it copies the DB (opening a plain `Microsoft.Data.Sqlite` `SqliteConnection` on the same path, outside EF) to `%LOCALAPPDATA%\NaggingTimeTracker\backups\tracker-yyyy-MM-dd.db` with `SqliteConnection.BackupDatabase`, deletes all but the newest 7 `tracker-*.db` files, and sets `last_backup_date`.
+`Data/BackupService.cs` (`BackupService(dbPath, backupDir, ISettingsStore, TimeProvider)`, `RunIfDue()`): on startup, if `settings['last_backup_date']` isn't today's **local** date, it copies the DB with `SqliteConnection.BackupDatabase` (plain `Microsoft.Data.Sqlite` connections outside EF, `Pooling=False`) to `backups\tracker-yyyy-MM-dd.db.tmp`, then moves it over `tracker-yyyy-MM-dd.db`, so a crash never leaves a truncated backup. It then deletes all but the newest 7 files named exactly `tracker-yyyy-MM-dd.db` (other files in the folder are never touched) and sets `last_backup_date`. It runs under `--no-background` too. A failure throws; `App.OnStartup` logs it and carries on, and the next start retries. As built: [plan-phase7-polish.md](plan-phase7-polish.md) §1.
 
 ### Repositories
 
@@ -422,7 +422,7 @@ Entries started during the idle period (`start_utc ≥ idleStart`) are left unto
 
 `App/Windows/SettingsWindow.xaml`, a tabbed window opened from the tray:
 
-- **General:** Start with Windows (writes/removes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NaggingTimeTracker` = `"<Environment.ProcessPath>"`), Open data folder (button). At every startup, if the Run value exists but points to a different path (e.g. after a reinstall to a different scope), the app rewrites it to the current `Environment.ProcessPath`.
+- **General** (the first tab, and the default for `ShowSettings()`): Start with Windows (writes/removes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NaggingTimeTracker` = `"<Environment.ProcessPath>"`, applied at once), the data folder path, and Open data folder (button). At startup, if the Run value exists but points to a different path (e.g. after a reinstall to a different scope), the app rewrites it to the current `Environment.ProcessPath`. The rules live in `Core/Startup/RunAtLogin.cs` behind `IRunKeyStore`; `App/Startup/RegistryRunKeyStore.cs` (`ValueName = "NaggingTimeTracker"`) is the registry side. **A `--data-dir` instance never touches the value** (the checkbox is disabled, no self-heal), because the Run value has no arguments and always starts the default data folder, and **Debug builds never self-heal** (stakeholder decision). As built: [plan-phase7-polish.md](plan-phase7-polish.md) §2–§4.
 - **Work hours:** work days, start, end; not-tracking nag on/off + interval. The Work hours and Check-ins tabs **apply each valid change immediately** (on focus loss); there's no Save button. Tabs are selected by a `SettingsTab` tag, not by position.
 - **Check-ins:** on/off + interval.
 - **Idle:** on/off + threshold (1–1440 min), between Check-ins and Reminders; it applies immediately like the Work hours and Check-ins tabs.
@@ -618,10 +618,10 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] SettingsWindow tab: Idle
 
 ### Phase 7 — Polish
-- [ ] SettingsWindow General tab: Start with Windows, Open data folder, Run-path self-heal per §8
-- [ ] `Data/BackupService.cs` per §2, called at startup after migrations
-- [ ] `tests/.../Data/BackupServiceTests.cs`: creates today's backup once; retains 7
-- [ ] `<ApplicationIcon>Assets\tray\tracking-1.ico</ApplicationIcon>` in the App csproj
+- [x] SettingsWindow General tab: Start with Windows, Open data folder, Run-path self-heal per §8 (`Core/Startup/RunAtLogin.cs`, `App/Startup/RegistryRunKeyStore.cs`)
+- [x] `Data/BackupService.cs` per §2, called at startup after migrations
+- [x] `tests/.../Data/BackupServiceTests.cs`: creates today's backup once; retains 7; plus `Core/RunAtLoginTests.cs`
+- [x] `<ApplicationIcon>Assets\app.ico</ApplicationIcon>` in the App csproj (`app.ico` is the green circle at 16–256 px, generated by `tools/make-icons.ps1`; stakeholder decision, instead of the 32-px `Assets\tray\tracking-1.ico`)
 
 ### Phase 8 — Automated UI tests
 - [ ] Create `tests/NaggingTimeTracker.UiTests` (`net10.0-windows`, FlaUI.UIA3, `ProjectReference` to App with `ReferenceOutputAssembly=false`, and to Data) and add it to the sln

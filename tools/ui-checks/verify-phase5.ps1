@@ -116,7 +116,8 @@ function StartTimer($customer, [switch]$Parallel) {
 # 1. Settings tabs
 $app = Launch @('--show', 'settings')
 $set = TopWindow 'SettingsWindow' 15000
-Check ((Find $set 'SettingsWindow.WorkHoursTab').GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) "--show settings opens on Work hours"
+Check ((Find $set 'SettingsWindow.GeneralTab').GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) "--show settings opens on General"
+SelectTab $set 'SettingsWindow.WorkHoursTab'
 Commit $set 'SettingsWindow.WorkStart' '10:00'
 Commit $set 'SettingsWindow.WorkEnd' '10:00'
 Check ((Find $set 'SettingsWindow.WorkHoursError').Current.Name -eq "Start and end can't be the same.") "start = end shows the inline error"
@@ -124,6 +125,7 @@ $set.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern).Close
 Quit
 $app = Launch @('--show', 'settings')
 $set = TopWindow 'SettingsWindow' 15000
+SelectTab $set 'SettingsWindow.WorkHoursTab'
 $end = Value (Find $set 'SettingsWindow.WorkEnd')
 Check ($end -eq '17:00') "the invalid end wasn't saved (reopened: '$end')"
 Check ((Value (Find $set 'SettingsWindow.WorkStart')) -eq '10:00') "...while the valid start was"
@@ -188,6 +190,7 @@ Check ((TopWindow 'NagWindow' 500) -eq $null) "the nag closes once every due row
 
 # 5. Scheduled reminder for the next minute (check-ins and not-tracking off first)
 $set = OpenSettings
+SelectTab $set 'SettingsWindow.WorkHoursTab'
 SetCheck $set 'SettingsWindow.NotTrackingEnabled' $false
 SelectTab $set 'SettingsWindow.CheckInsTab'
 SetCheck $set 'SettingsWindow.CheckInEnabled' $false

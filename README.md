@@ -2,7 +2,7 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–6 of 9 have shipped:
+> **Status:** in development. Phases 1–7 of 9 have shipped:
 >
 > - **Tray:** start, stop and continue timers, including parallel ones.
 > - **Entries window:** review, filter, edit, delete and add entries.
@@ -12,13 +12,17 @@ A Windows system-tray time tracker that nags you to keep your timesheet honest.
 > - **Idle detection:** when you come back from being away (no input, locked or asleep) with a
 >   timer running, it asks whether to keep, discard and continue, or discard and stop the idle
 >   time. It asks the same at startup if the app wasn't running.
-> - **Settings:** rename or archive customers and task types.
+> - **Settings:** start with Windows, open the data folder, and rename or archive customers
+>   and task types.
+> - **Backups:** a copy of the database each day you use the app; the newest 7 are kept in
+>   `backups\` next to `tracker.db`.
 >
 > There is no installer yet. The full v1 design lives in
 > [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
 > detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
 > [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md), [Phase 5](plan-phase5-reminders.md),
-> [Phase 6](plan-phase6-idle-detection.md). This README gains usage and install instructions as
+> [Phase 6](plan-phase6-idle-detection.md),
+> [Phase 7](plan-phase7-polish.md). This README gains usage and install instructions as
 > those phases land.
 
 ## What v1 will do
@@ -102,8 +106,8 @@ and exits with code 1.
 | `src/NaggingTimeTracker.Core` | Domain records, services (tracking, catalog, settings), time helpers, repository interfaces. No EF Core, no WPF. |
 | `src/NaggingTimeTracker.Data` | EF Core / SQLite: `TrackerDbContext`, entity configurations, repositories, migrations. |
 | `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, Entries window, entry editor, Settings window, dialogs, single-instance handling. `Windows/WindowManager.cs` keeps each non-modal window to a single instance. |
-| `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/`. Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
-| `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–6), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
+| `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/` and the exe's icon `Assets/app.ico` (16–256 px). Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
+| `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–7), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
 | `tests/NaggingTimeTracker.Tests` | xUnit tests against a real SQLite file per test (`TestDb.cs`). |
 
 ### Database changes
@@ -154,6 +158,13 @@ dotnet ef migrations script --project src/NaggingTimeTracker.Data   # review the
   machine (lock, sleep, the threshold), `Downtime` the startup check and `IdleResolver` the only
   code that rewrites entries for idle time. `App/Idle/IdleMonitor.cs` just polls
   `GetLastInputInfo` and forwards `SystemEvents`; test idle behaviour in `IdleTrackerTests`.
+- **Start with Windows goes through `Core/Startup/RunAtLogin.cs`** behind `IRunKeyStore`
+  (`App/Startup/RegistryRunKeyStore.cs` is the HKCU Run key), so its rules are unit-tested. At
+  startup a Run value pointing at another exe is repointed at this one, but only by Release
+  builds on the default data folder: a Debug build or a `--data-dir` instance never rewrites it
+  on its own, so running the repo's build or the UI checks can't take over Windows startup.
+- **Backups are `Data/BackupService.cs`**, run once per local day at startup with SQLite's
+  online backup API. A failure is logged and retried next start; it never blocks startup.
 - **Settings tabs are selected by `SettingsTab` tag, not position**, so a phase can add a tab
   anywhere. The Work hours, Check-ins and Idle tabs save each valid change as soon as a field loses
   focus; there is no Save button.

@@ -2,6 +2,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using NaggingTimeTracker.Core.Reminders;
 using NaggingTimeTracker.Core.Services;
 using NaggingTimeTracker.Core.Settings;
+using NaggingTimeTracker.Core.Startup;
+using NaggingTimeTracker.Data;
 
 namespace NaggingTimeTracker.App.ViewModels;
 
@@ -12,9 +14,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         CatalogService catalog,
         SettingsService settings,
         ScheduledReminderService reminders,
+        RunAtLogin runAtLogin,
+        DataPaths paths,
+        StartupOptions options,
         TimeProvider time)
     {
         ArgumentNullException.ThrowIfNull(catalog);
+        General = new GeneralSettingsViewModel(runAtLogin, paths, options);
         Reminder = new ReminderSettingsViewModel(settings);
         Scheduled = new ScheduledRemindersViewModel(reminders, time);
         Customers = new CatalogListViewModel(
@@ -23,7 +29,10 @@ public sealed partial class SettingsViewModel : ObservableObject
             "task type", "TaskType", catalog.GetAllTaskTypes, catalog.RenameTaskType, catalog.SetTaskTypeArchived);
     }
 
-    /// <summary>The Work hours and Check-ins tabs.</summary>
+    /// <summary>The General tab.</summary>
+    public GeneralSettingsViewModel General { get; }
+
+    /// <summary>The Work hours, Check-ins and Idle tabs.</summary>
     public ReminderSettingsViewModel Reminder { get; }
 
     /// <summary>The Reminders tab.</summary>

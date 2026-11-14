@@ -1,10 +1,12 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NaggingTimeTracker.App.Idle;
 using NaggingTimeTracker.App.Reminders;
+using NaggingTimeTracker.App.Startup;
 using NaggingTimeTracker.App.Tracking;
 using NaggingTimeTracker.App.Tray;
 using NaggingTimeTracker.App.ViewModels;
@@ -14,6 +16,7 @@ using NaggingTimeTracker.Core.Services;
 using NaggingTimeTracker.Core.Settings;
 using NaggingTimeTracker.Core.Startup;
 using NaggingTimeTracker.Core.Time;
+using NaggingTimeTracker.Core.Abstractions;
 using NaggingTimeTracker.Data;
 
 namespace NaggingTimeTracker.App;
@@ -58,6 +61,8 @@ public partial class App : Application
 
             _host = BuildHost(options, paths);
             _host.Services.GetRequiredService<DatabaseInitializer>().Initialize();
+            RunBackup(_host.Services);
+            HealRunKey(_host.Services, options);
 
             // Before the host starts, so ReminderHost hasn't overwritten the stale heartbeat yet (§7.3).
             if (!options.NoBackground)
@@ -111,6 +116,45 @@ public partial class App : Application
         base.OnExit(e);
     }
 
+    /// <summary>The daily backup (§2). A failure never blocks startup; the next start retries.</summary>
+    private static void RunBackup(IServiceProvider services)
+    {
+        try
+        {
+            services.GetRequiredService<BackupService>().RunIfDue();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Backup failed: {ex}");
+        }
+    }
+
+    /// <summary>
+    /// Repoints an existing Run value at this exe (§8). Release builds on the default data folder
+    /// only, so neither a development build nor a --data-dir instance takes over Windows startup.
+    /// </summary>
+    private static void HealRunKey(IServiceProvider services, StartupOptions options)
+    {
+#if DEBUG
+        _ = services;
+        _ = options;
+#else
+        if (options.DataDir is not null || Environment.ProcessPath is not { } exe)
+        {
+            return;
+        }
+
+        try
+        {
+            services.GetRequiredService<RunAtLogin>().HealIfMoved(exe);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Run key self-heal failed: {ex}");
+        }
+#endif
+    }
+
     private static IHost BuildHost(StartupOptions options, DataPaths paths)
     {
         var builder = Host.CreateApplicationBuilder();
@@ -121,6 +165,10 @@ public partial class App : Application
         services.AddSingleton(options);
         services.AddSingleton(paths);
         services.AddTrackerData(paths.DbPath);
+        services.AddSingleton(sp => new BackupService(
+            paths.DbPath, paths.BackupDir, sp.GetRequiredService<ISettingsStore>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IRunKeyStore, RegistryRunKeyStore>();
+        services.AddSingleton<RunAtLogin>();
 
         services.AddSingleton<TrackingService>();
         services.AddSingleton<CatalogService>();

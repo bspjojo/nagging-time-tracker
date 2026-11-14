@@ -1,11 +1,13 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Generates the tray icon set into src/NaggingTimeTracker.App/Assets/tray/.
+    Generates the tray icon set into src/NaggingTimeTracker.App/Assets/tray/, and the exe's icon
+    src/NaggingTimeTracker.App/Assets/app.ico.
 
 .DESCRIPTION
-    Each .ico holds 16, 20, 24 and 32 px PNG-compressed images of a filled circle. Grey = idle,
+    Each tray .ico holds 16, 20, 24 and 32 px PNG-compressed images of a filled circle. Grey = idle,
     green = one timer, amber + digit = several timers, red = attention (a nag is showing).
+    app.ico is the green circle at 16-256 px, so Explorer's large views stay sharp.
     The ICO container is written by hand because Icon.FromHandle degrades the alpha channel.
     Run with Windows PowerShell 5.1:  powershell -NoProfile -File tools/make-icons.ps1
 #>
@@ -60,18 +62,18 @@ function New-IconPng([int]$size, [System.Drawing.Color]$color, [string]$label) {
     }
 }
 
-function Write-Ico([string]$path, [System.Drawing.Color]$color, [string]$label) {
-    $images = foreach ($s in $sizes) { ,(New-IconPng $s $color $label) }
+function Write-Ico([string]$path, [System.Drawing.Color]$color, [string]$label, [int[]]$iconSizes = $sizes) {
+    $images = foreach ($s in $iconSizes) { ,(New-IconPng $s $color $label) }
 
     $fs = [System.IO.File]::Create($path)
     $w = New-Object System.IO.BinaryWriter($fs)
     try {
         # ICONDIR
-        $w.Write([uint16]0); $w.Write([uint16]1); $w.Write([uint16]$sizes.Count)
-        $offset = 6 + 16 * $sizes.Count
-        for ($i = 0; $i -lt $sizes.Count; $i++) {
-            # ICONDIRENTRY
-            $w.Write([byte]$sizes[$i]); $w.Write([byte]$sizes[$i])
+        $w.Write([uint16]0); $w.Write([uint16]1); $w.Write([uint16]$iconSizes.Count)
+        $offset = 6 + 16 * $iconSizes.Count
+        for ($i = 0; $i -lt $iconSizes.Count; $i++) {
+            # ICONDIRENTRY (the format stores 256 as 0)
+            $w.Write([byte]($iconSizes[$i] % 256)); $w.Write([byte]($iconSizes[$i] % 256))
             $w.Write([byte]0); $w.Write([byte]0)
             $w.Write([uint16]1); $w.Write([uint16]32)
             $w.Write([uint32]$images[$i].Length); $w.Write([uint32]$offset)
@@ -96,3 +98,8 @@ Write-Ico (Join-Path $outDir 'attention-9plus.ico') $colors.attention '9+'
 
 $count = (Get-ChildItem -Path $outDir -Filter '*.ico').Count
 Write-Output "Wrote $count icon files to $outDir"
+
+# The exe's icon (ApplicationIcon): the one-timer green circle, with large sizes for Explorer.
+$appIco = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\NaggingTimeTracker.App\Assets\app.ico'))
+Write-Ico $appIco $colors.tracking '' -iconSizes 16, 20, 24, 32, 48, 64, 256
+Write-Output "Wrote $appIco"

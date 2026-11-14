@@ -1,4 +1,4 @@
-# Scripted UI checks (Phases 2–6)
+# Scripted UI checks (Phases 2–7)
 
 These are the per-phase manual-verification scripts: each one drives the real app through
 Windows UI Automation against a throwaway `--data-dir` and prints `PASS` / `FAIL` lines, then
@@ -24,7 +24,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\ui-checks\verify-phase
 - Run one script at a time; they all use the desktop and the same process.
 - **Phases 5 and 6 wait on real timers.** Phase 5 takes about 8 minutes, Phase 6 about 4.
   During Phase 6's live-idle step, don't touch the keyboard or mouse for about 90 seconds.
-- Phases 5 and 6 need `python` on `PATH`. Windows PowerShell 5.1 can't load the app's .NET 10
+- Phases 5–7 need `python` on `PATH`. Windows PowerShell 5.1 can't load the app's .NET 10
   SQLite library, so `p5db.py` / `p6db.py` (standard `sqlite3` module) read and write the scratch
   database, and they only write while the app is closed.
 
@@ -35,6 +35,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\ui-checks\verify-phase
 | `verify-phase4.ps1` | CSV export: pre-fill from Entries, running filter, file contents, overwrite, locked file |
 | `verify-phase5.ps1` | Reminder settings, nags, pause, `--no-background` |
 | `verify-phase6.ps1` | Idle tab, startup downtime prompt, live idle prompt |
+| `verify-phase7.ps1` | Daily backup and retention, General tab (data folder, Start with Windows disabled under `--data-dir`) |
 
-Not scriptable, checked by hand: the tray icon, and for Phase 6 a lock/unlock (Win+L) longer
-than the idle threshold.
+Not scriptable, checked by hand: the tray icon; for Phase 6 a lock/unlock (Win+L) longer than
+the idle threshold; for Phase 7 the Start with Windows registry value, the Release-only Run-key
+self-heal, Open data folder and the exe icon (they touch your real profile, so the script leaves
+them out).

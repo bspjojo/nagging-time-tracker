@@ -1,8 +1,9 @@
-"""Scratch-database helper for the Phase 6 UI checks (writes only while the app is closed).
+"""Scratch-database helper for the Phase 6 and 7 UI checks (writes only while the app is closed).
 
 python p6db.py <db> seed <start_min_ago> <heartbeat_min_ago>   # one running Acme entry + heartbeat
 python p6db.py <db> entries                                    # id|start|stop|continued_from per row
 python p6db.py <db> get <key>
+python p6db.py <db> unset <key> [key ...]
 python p6db.py <db> heartbeat                                  # the stored heartbeat (ms)
 """
 import sqlite3
@@ -30,6 +31,9 @@ if cmd == 'seed':
 elif cmd == 'entries':
     for r in con.execute('SELECT id, start_utc, stop_utc, continued_from_id FROM entries ORDER BY id'):
         print('|'.join('' if v is None else str(v) for v in r))
+elif cmd == 'unset':
+    for k in args:
+        con.execute('DELETE FROM settings WHERE key = ?', (k,))
 elif cmd == 'get':
     row = con.execute('SELECT value FROM settings WHERE key = ?', (args[0],)).fetchone()
     print('none' if row is None else row[0])

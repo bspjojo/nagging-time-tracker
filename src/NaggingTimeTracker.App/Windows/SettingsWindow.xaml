@@ -39,6 +39,42 @@
     </Window.Resources>
 
     <TabControl x:Name="Tabs" Margin="8" AutomationProperties.AutomationId="SettingsWindow.Tabs">
+        <!-- General (§8): Start with Windows applies at once. -->
+        <TabItem Header="General" Tag="{x:Static windows:SettingsTab.General}" DataContext="{Binding General}"
+                 AutomationProperties.AutomationId="SettingsWindow.GeneralTab">
+            <StackPanel Margin="12">
+                <CheckBox Content="_Start Nagging Time Tracker when I sign in to Windows" IsChecked="{Binding StartWithWindows}"
+                          IsEnabled="{Binding CanChangeStartWithWindows}"
+                          AutomationProperties.AutomationId="SettingsWindow.StartWithWindows" />
+                <TextBlock Text="Only available when using the default data folder." Margin="20,4,0,0" TextWrapping="Wrap"
+                           Foreground="{x:Static SystemColors.GrayTextBrush}"
+                           AutomationProperties.AutomationId="SettingsWindow.StartWithWindowsHint">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding CanChangeStartWithWindows}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <Label Content="_Data folder:" Target="{Binding ElementName=DataFolderBox}" Padding="0" Margin="0,16,0,4" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="_Open data folder" Command="{Binding OpenDataFolderCommand}"
+                            Padding="8,3" Margin="8,0,0,0"
+                            AutomationProperties.AutomationId="SettingsWindow.OpenDataFolderButton" />
+                    <TextBox x:Name="DataFolderBox" Text="{Binding DataFolder, Mode=OneWay}" IsReadOnly="True"
+                             VerticalContentAlignment="Center"
+                             AutomationProperties.AutomationId="SettingsWindow.DataFolder" />
+                </DockPanel>
+                <TextBlock Margin="0,8,0,0" TextWrapping="Wrap" Foreground="{x:Static SystemColors.GrayTextBrush}"
+                           Text="Your entries are in tracker.db. A backup is made each day you use the app; the last 7 are kept in the backups folder." />
+                <TextBlock Text="{Binding GeneralError}" Foreground="{StaticResource ErrorBrush}" Margin="0,10,0,0" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="SettingsWindow.GeneralError" />
+            </StackPanel>
+        </TabItem>
+
         <!-- Work hours: the not-tracking reminder (§6.1). Changes apply when a field loses focus. -->
         <TabItem Header="Work hours" Tag="{x:Static windows:SettingsTab.WorkHours}" DataContext="{Binding Reminder}"
                  AutomationProperties.AutomationId="SettingsWindow.WorkHoursTab">

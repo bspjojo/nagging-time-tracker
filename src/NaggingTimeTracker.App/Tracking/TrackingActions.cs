@@ -27,11 +27,14 @@ public sealed class TrackingActions(TrackingService tracking, CatalogService cat
             owner,
             reason => tracking.Continue(sourceId, confirmedConcurrent: true, overlapReason: reason));
 
+    /// <summary>
+    /// Resolves "last" once, before any dialog: "Stop others" stops the running entry, which then
+    /// becomes the latest stop, so re-resolving in the retry would continue the wrong entry.
+    /// </summary>
     public StartResult ContinueLast(Window? owner) =>
-        Confirmed(
-            tracking.ContinueLast(),
-            owner,
-            reason => tracking.ContinueLast(confirmedConcurrent: true, overlapReason: reason));
+        tracking.LastStopped() is { } last
+            ? Continue(last.Id, owner)
+            : new StartResult.NothingToContinue();
 
     /// <summary>An explicit single stop: offers Discard/Keep when the entry is under a minute.</summary>
     public void StopSingle(long id, Window? owner)

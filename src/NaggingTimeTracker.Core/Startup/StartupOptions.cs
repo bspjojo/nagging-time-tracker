@@ -7,6 +7,7 @@ public enum ShowTarget
     QuickPanel,
     Entries,
     Settings,
+    Export,
 }
 
 public sealed class StartupOptionsException(string message) : Exception(message);
@@ -73,7 +74,8 @@ public sealed record StartupOptions(string? DataDir, ShowTarget Show, bool NoBac
             "quick-panel" => ShowTarget.QuickPanel,
             "entries" => ShowTarget.Entries,
             "settings" => ShowTarget.Settings,
+            "export" => ShowTarget.Export,
             _ => throw new StartupOptionsException(
-                $"Unknown --show value '{value}'. Valid values: quick-panel, entries, settings."),
+                $"Unknown --show value '{value}'. Valid values: quick-panel, entries, settings, export."),
         };
 }

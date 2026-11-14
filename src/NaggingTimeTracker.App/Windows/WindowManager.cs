@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using NaggingTimeTracker.Core.Entries;
 
 namespace NaggingTimeTracker.App.Windows;
 
@@ -18,6 +19,7 @@ public sealed class WindowManager(IServiceProvider services)
 {
     private EntriesWindow? _entries;
     private SettingsWindow? _settings;
+    private ExportWindow? _export;
 
     public void ShowEntries()
     {
@@ -30,6 +32,17 @@ public sealed class WindowManager(IServiceProvider services)
         _settings ??= Track(services.GetRequiredService<SettingsWindow>(), () => _settings = null);
         _settings.SelectTab(tab);
         Bring(_settings);
+    }
+
+    /// <summary>
+    /// Shows the Export window. A pre-fill (from the Entries window) is applied even when the
+    /// window is already open, so it exports what is on screen.
+    /// </summary>
+    public void ShowExport(FilterState? prefill = null)
+    {
+        _export ??= Track(services.GetRequiredService<ExportWindow>(), () => _export = null);
+        _export.ApplyPrefill(prefill);
+        Bring(_export);
     }
 
     private static T Track<T>(T window, Action onClosed)

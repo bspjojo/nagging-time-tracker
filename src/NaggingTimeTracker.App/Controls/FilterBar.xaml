@@ -1,0 +1,52 @@
+<UserControl x:Class="NaggingTimeTracker.App.Controls.FilterBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- DataContext: FilterBarViewModel. Control ids are "<AutomationPrefix>.<Control>",
+         so the Entries window keeps its Phase 3 ids and the Export window gets ExportWindow.* -->
+    <UserControl.Resources>
+        <Style x:Key="FilterLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <WrapPanel>
+            <ComboBox Width="110" Margin="0,0,10,6" ItemsSource="{Binding Presets}" SelectedItem="{Binding Preset}"
+                      AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.PresetCombo}"
+                      AutomationProperties.Name="Date range" />
+            <TextBlock Text="From" Style="{StaticResource FilterLabel}" />
+            <DatePicker Width="125" Margin="0,0,10,6" SelectedDate="{Binding FromDate}" IsEnabled="{Binding IsCustom}"
+                        AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.FromDate}" />
+            <TextBlock Text="To" Style="{StaticResource FilterLabel}" />
+            <DatePicker Width="125" Margin="0,0,10,6" SelectedDate="{Binding ToDate}" IsEnabled="{Binding IsCustom}"
+                        AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.ToDate}" />
+            <ComboBox Width="150" Margin="0,0,10,6" ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding CustomerFilter}"
+                      AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.CustomerFilter}"
+                      AutomationProperties.Name="Customer" />
+            <ComboBox Width="150" Margin="0,0,10,6" ItemsSource="{Binding TaskTypeOptions}" SelectedItem="{Binding TaskTypeFilter}"
+                      AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.TaskTypeFilter}"
+                      AutomationProperties.Name="Task type" />
+            <Grid Width="170" Margin="0,0,0,6">
+                <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.SearchBox}"
+                         AutomationProperties.Name="Search notes and links" />
+                <TextBlock Text="Search notes and links" Margin="5,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource SubtleBrush}" IsHitTestVisible="False">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </Grid>
+        </WrapPanel>
+        <TextBlock Text="{Binding FilterError}" Foreground="{StaticResource ErrorBrush}"
+                   AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}{0}.FilterError}" />
+    </StackPanel>
+</UserControl>

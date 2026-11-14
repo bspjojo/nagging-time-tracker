@@ -1,0 +1,45 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.ExportWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:NaggingTimeTracker.App.Controls"
+        AutomationProperties.AutomationId="ExportWindow"
+        Title="Export CSV — Nagging Time Tracker"
+        Width="1000" SizeToContent="Height" ResizeMode="CanMinimize"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
+    <StackPanel Margin="14">
+        <controls:FilterBar DataContext="{Binding Filter}" />
+
+        <CheckBox Content="_Include running entries" IsChecked="{Binding IncludeRunning}" Margin="0,8,0,0"
+                  ToolTip="Running entries are exported with a blank stop and the duration so far."
+                  AutomationProperties.AutomationId="ExportWindow.IncludeRunning" />
+
+        <TextBlock Text="{Binding PreviewText}" Margin="0,10,0,0" FontWeight="SemiBold"
+                   AutomationProperties.AutomationId="ExportWindow.Preview" />
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,4,0,0"
+                   AutomationProperties.AutomationId="ExportWindow.Error" />
+
+        <Button Content="_Export…" IsDefault="True" HorizontalAlignment="Right" Padding="16,4" Margin="0,8,0,0"
+                Command="{Binding ExportCommand}"
+                AutomationProperties.AutomationId="ExportWindow.ExportButton" />
+
+        <Border Margin="0,12,0,0" Padding="10,8" BorderThickness="1"
+                BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Open _file" Command="{Binding OpenFileCommand}" Padding="10,3" Margin="8,0,0,0"
+                            AutomationProperties.AutomationId="ExportWindow.OpenFileButton" />
+                    <Button Content="Open f_older" Command="{Binding OpenFolderCommand}" Padding="10,3" Margin="8,0,0,0"
+                            AutomationProperties.AutomationId="ExportWindow.OpenFolderButton" />
+                </StackPanel>
+                <TextBlock Text="{Binding ResultText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding LastExportPath}"
+                           AutomationProperties.AutomationId="ExportWindow.Result" />
+            </DockPanel>
+        </Border>
+    </StackPanel>
+</Window>

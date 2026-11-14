@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phases 4–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phases 5–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -442,7 +442,7 @@ The four state keys in the last row aren't part of `AppSettings`. They're read a
 
 `App/Windows/ExportWindow.xaml`: date range (same presets as §5, "to" inclusive), Customer and Task type filters, the same text search box as §5, an "Include running entries" checkbox (default off), and **Export…** → `SaveFileDialog` (default name `timesheet-<from yyyy-MM-dd>_to_<to yyyy-MM-dd>.csv`, using the inclusive "to" date). Opening it from `EntriesWindow` pre-fills all four filters (date range, customer, task type, text) from that window, so what's exported matches what was on screen. Rows come from `QueryViews` with the same `EntryFilter`. When the checkbox is off, rows with `StopUtc == null` are dropped in `ExportWindow` before calling the exporter.
 
-`Core/Export/CsvExporter.cs`, `Write(Stream, IEnumerable<EntryView>, DateTimeOffset nowUtc)`, writes **UTF-8 with BOM** (so Excel detects the encoding), comma-delimited, with RFC 4180 quoting via CsvHelper and `CultureInfo.InvariantCulture`. Rows are ordered by `start_utc`. Columns:
+`Core/Export/CsvExporter.cs`, `Write(Stream, IEnumerable<EntryView>, DateTimeOffset nowUtc, TimeZoneInfo tz)`, writes **UTF-8 with BOM** (so Excel detects the encoding), comma-delimited, with RFC 4180 quoting via CsvHelper and `CultureInfo.InvariantCulture`. Rows are ordered by `start_utc`. Columns:
 
 | Column | Format |
 |---|---|
@@ -456,10 +456,12 @@ The four state keys in the last row aren't part of `AppSettings`. They're read a
 | `task_type` | name |
 | `external_link` | as stored |
 | `notes` | as stored (newlines preserved inside quotes) |
+
+Any text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` (CsvHelper `CsvInjection.Escape`; stakeholder decision in [plan-phase4-csv-export.md](plan-phase4-csv-export.md)), so Excel shows it as text instead of running it as a formula.
 | `continued_from_id` | integer or blank |
 | `overlap_reason` | as stored or blank |
 
-`EntryView` is the Core record from `IEntryRepository.QueryViews` (§2). After a successful write, the dialog offers **Open file** / **Open folder**.
+`EntryView` is the Core record from `IEntryRepository.QueryViews` (§2). The window previews how many entries will be exported (and how many running ones are left out) and disables **Export…** when nothing matches. The file is written to `<path>.tmp` and then moved over the target, so a failure never leaves a truncated file. After a successful write, the window offers **Open file** / **Open folder**. Opening it from `EntriesWindow` re-applies the pre-fill even if the Export window is already open. Both windows share one filter bar (`App/Controls/FilterBar.xaml`, `Core/Entries/FilterState.cs`).
 
 ---
 
@@ -582,9 +584,9 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] `App/Windows/SettingsWindow.xaml` shell with Customers and Task types tabs per §5; add the *Settings…* menu item, footer link and `--show settings`
 
 ### Phase 4 — CSV export
-- [ ] `Core/Export/CsvExporter.cs` per §9
-- [ ] `tests/.../Core/CsvExporterTests.cs`: header and column order; notes with commas, quotes and newlines round-trip through a CsvHelper reader; BOM present; `1.25` (not `1,25`) under a `de-DE` current culture; local conversion in a DST zone (`America/New_York`, an entry spanning 2026-03-08 02:00); running entry blank stop + duration to `nowUtc`
-- [ ] `App/Windows/ExportWindow.xaml` (with the text search box and the running-entries filter) + pre-fill of all four filters from `EntriesWindow` per §9; add the *Export CSV…* menu item, footer link and `--show export`
+- [x] `Core/Export/CsvExporter.cs` per §9
+- [x] `tests/.../Core/CsvExporterTests.cs`: header and column order; notes with commas, quotes and newlines round-trip through a CsvHelper reader; BOM present; `1.25` (not `1,25`) under a `de-DE` current culture; local conversion in a DST zone (`America/New_York`, an entry spanning 2026-03-08 02:00); running entry blank stop + duration to `nowUtc`
+- [x] `App/Windows/ExportWindow.xaml` (with the text search box and the running-entries filter) + pre-fill of all four filters from `EntriesWindow` per §9; add the *Export CSV…* menu item, footer link and `--show export`
 
 ### Phase 5 — Reminders
 - [ ] `Core/Reminders/WorkSchedule.cs` per §6.1

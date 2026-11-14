@@ -189,6 +189,9 @@ public sealed partial class QuickPanelViewModel : ObservableObject
     private void OpenEntries() => _windows.ShowEntries();
 
     [RelayCommand]
+    private void OpenExport() => _windows.ShowExport();
+
+    [RelayCommand]
     private void OpenSettings() => _windows.ShowSettings();
 
     private IDisposable? BeginModal() => Host?.BeginModal();

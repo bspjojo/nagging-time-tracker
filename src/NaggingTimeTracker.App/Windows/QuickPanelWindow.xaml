@@ -197,6 +197,9 @@
                     <Hyperlink Command="{Binding OpenEntriesCommand}"
                                AutomationProperties.AutomationId="QuickPanel.AllEntriesLink">All entries…</Hyperlink>
                     <Run Text="   " />
+                    <Hyperlink Command="{Binding OpenExportCommand}"
+                               AutomationProperties.AutomationId="QuickPanel.ExportLink">Export…</Hyperlink>
+                    <Run Text="   " />
                     <Hyperlink Command="{Binding OpenSettingsCommand}"
                                AutomationProperties.AutomationId="QuickPanel.SettingsLink">Settings…</Hyperlink>
                 </TextBlock>

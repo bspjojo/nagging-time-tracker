@@ -75,6 +75,9 @@ public partial class App : Application
                 case ShowTarget.Settings:
                     windows.ShowSettings();
                     break;
+                case ShowTarget.Export:
+                    windows.ShowExport();
+                    break;
             }
         }
         catch (Exception ex)
@@ -122,6 +125,8 @@ public partial class App : Application
         services.AddTransient<EntriesWindow>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<SettingsWindow>();
+        services.AddTransient<ExportViewModel>();
+        services.AddTransient<ExportWindow>();
 
         return builder.Build();
     }

@@ -5,9 +5,9 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NaggingTimeTracker.App.Tracking;
+using NaggingTimeTracker.App.Windows;
 using NaggingTimeTracker.Core.Abstractions;
 using NaggingTimeTracker.Core.Formatting;
-using NaggingTimeTracker.Core.Model;
 using NaggingTimeTracker.Core.Services;
 using NaggingTimeTracker.Core.Time;
 
@@ -17,13 +17,11 @@ public sealed partial class EntriesViewModel : ObservableObject
 {
     private readonly IEntryRepository _entries;
     private readonly TrackingService _tracking;
-    private readonly CatalogService _catalog;
     private readonly TrackingActions _actions;
     private readonly EntryEditorFactory _editors;
+    private readonly WindowManager _windows;
     private readonly TimeProvider _time;
-    private readonly DispatcherTimer _searchDebounce;
     private readonly DispatcherTimer _runningTicker;
-    private bool _suppressReload;
 
     public EntriesViewModel(
         IEntryRepository entries,
@@ -31,76 +29,40 @@ public sealed partial class EntriesViewModel : ObservableObject
         CatalogService catalog,
         TrackingActions actions,
         EntryEditorFactory editors,
+        WindowManager windows,
         TimeProvider time)
     {
         _entries = entries;
         _tracking = tracking;
-        _catalog = catalog;
         _actions = actions;
         _editors = editors;
+        _windows = windows;
         _time = time;
 
-        _searchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-        _searchDebounce.Tick += (_, _) =>
+        Filter = new FilterBarViewModel(catalog, time, "EntriesWindow");
+        Filter.Changed += (_, _) => Reload();
+        Filter.PropertyChanged += (_, e) =>
         {
-            _searchDebounce.Stop();
-            Reload();
+            // An invalid range doesn't raise Changed, but it does change whether Export is possible.
+            if (e.PropertyName == nameof(FilterBarViewModel.FilterError))
+            {
+                ExportCommand.NotifyCanExecuteChanged();
+            }
         };
+
         _runningTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
         _runningTicker.Tick += (_, _) => Reload();
 
         _tracking.RunningEntriesChanged += OnRunningEntriesChanged;
-
-        _suppressReload = true;
-        _preset = Presets[1]; // This week
-        ApplyPresetDates(_preset.Preset);
-        _suppressReload = false;
         Reload();
     }
 
     /// <summary>The window, for owning dialogs.</summary>
     public Window? Owner { get; set; }
 
-    public IReadOnlyList<PresetOption> Presets { get; } =
-    [
-        new(DatePreset.Today, "Today"),
-        new(DatePreset.ThisWeek, "This week"),
-        new(DatePreset.LastWeek, "Last week"),
-        new(DatePreset.ThisMonth, "This month"),
-        new(DatePreset.Custom, "Custom"),
-    ];
+    public FilterBarViewModel Filter { get; }
 
     public ObservableCollection<EntryRowViewModel> Rows { get; } = [];
-
-    [ObservableProperty]
-    private PresetOption _preset;
-
-    [ObservableProperty]
-    private DateTime? _fromDate;
-
-    [ObservableProperty]
-    private DateTime? _toDate;
-
-    [ObservableProperty]
-    private bool _isCustom;
-
-    [ObservableProperty]
-    private IReadOnlyList<FilterOption> _customerOptions = [];
-
-    [ObservableProperty]
-    private FilterOption? _customerFilter;
-
-    [ObservableProperty]
-    private IReadOnlyList<FilterOption> _taskTypeOptions = [];
-
-    [ObservableProperty]
-    private FilterOption? _taskTypeFilter;
-
-    [ObservableProperty]
-    private string _searchText = "";
-
-    [ObservableProperty]
-    private string? _filterError;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(EditCommand), nameof(ContinueCommand), nameof(DeleteCommand))]
@@ -113,41 +75,25 @@ public sealed partial class EntriesViewModel : ObservableObject
     public void Detach()
     {
         _tracking.RunningEntriesChanged -= OnRunningEntriesChanged;
-        _searchDebounce.Stop();
         _runningTicker.Stop();
+        Filter.Detach();
     }
 
     public void Reload()
     {
-        if (_suppressReload)
+        Filter.RefreshOptions();
+        ExportCommand.NotifyCanExecuteChanged();
+        if (Filter.Current is not { } state)
         {
             return;
         }
 
-        RefreshFilterOptions();
-
-        if (FromDate is not { } from || ToDate is not { } to)
-        {
-            FilterError = "Choose both dates.";
-            return;
-        }
-
-        var fromDate = DateOnly.FromDateTime(from);
-        var toDate = DateOnly.FromDateTime(to);
-        if (toDate < fromDate)
-        {
-            FilterError = "The 'to' date is before the 'from' date.";
-            return;
-        }
-
-        FilterError = null;
         var tz = _time.LocalTimeZone;
         var now = _time.NowUtc();
-        var (fromUtc, toUtc) = LocalDateRange.ToUtcRange(fromDate, toDate, tz);
-        var filter = new EntryFilter(fromUtc, toUtc, CustomerFilter?.Id, TaskTypeFilter?.Id, SearchText);
+        var filter = state.ToEntryFilter(tz);
 
         var views = _entries.QueryViews(filter);
-        var overlapIds = _entries.GetOverlappingIds(fromUtc, toUtc, now);
+        var overlapIds = _entries.GetOverlappingIds(filter.FromUtc, filter.ToUtc, now);
         var parallel = _tracking.GetRunning().Count >= 2;
         var selectedId = Selected?.Id;
 
@@ -174,34 +120,6 @@ public sealed partial class EntriesViewModel : ObservableObject
         {
             _runningTicker.Stop();
         }
-    }
-
-    partial void OnPresetChanged(PresetOption value)
-    {
-        IsCustom = value.Preset == DatePreset.Custom;
-        if (!IsCustom)
-        {
-            _suppressReload = true;
-            ApplyPresetDates(value.Preset);
-            _suppressReload = false;
-        }
-
-        // Choosing Custom keeps the dates of the preset that was active.
-        Reload();
-    }
-
-    partial void OnFromDateChanged(DateTime? value) => Reload();
-
-    partial void OnToDateChanged(DateTime? value) => Reload();
-
-    partial void OnCustomerFilterChanged(FilterOption? value) => Reload();
-
-    partial void OnTaskTypeFilterChanged(FilterOption? value) => Reload();
-
-    partial void OnSearchTextChanged(string value)
-    {
-        _searchDebounce.Stop();
-        _searchDebounce.Start();
     }
 
     [RelayCommand]
@@ -241,52 +159,13 @@ public sealed partial class EntriesViewModel : ObservableObject
         }
     }
 
+    /// <summary>Opens the Export window pre-filled with the filters on screen.</summary>
+    [RelayCommand(CanExecute = nameof(HasValidFilter))]
+    private void Export() => _windows.ShowExport(Filter.Current);
+
     private bool HasSelection() => Selected is not null;
 
+    private bool HasValidFilter() => Filter.FilterError is null && Filter.FromDate is not null && Filter.ToDate is not null;
+
     private void OnRunningEntriesChanged(object? sender, EventArgs e) => Reload();
-
-    private void ApplyPresetDates(DatePreset preset)
-    {
-        var (from, to) = DatePresets.Range(preset, _time.TodayLocal());
-        FromDate = from.ToDateTime(TimeOnly.MinValue);
-        ToDate = to.ToDateTime(TimeOnly.MinValue);
-    }
-
-    private void RefreshFilterOptions()
-    {
-        var wasSuppressed = _suppressReload;
-        _suppressReload = true;
-        try
-        {
-            var customerId = CustomerFilter?.Id;
-            var taskTypeId = TaskTypeFilter?.Id;
-
-            // Replace a list only when it changed: a new ItemsSource makes the ComboBox reset its selection.
-            var customers = Options("All customers", _catalog.GetAllCustomers().Select(c => (c.Id, c.Name, c.Archived)));
-            if (!customers.SequenceEqual(CustomerOptions))
-            {
-                CustomerOptions = customers;
-            }
-
-            var taskTypes = Options("All task types", _catalog.GetAllTaskTypes().Select(t => (t.Id, t.Name, t.Archived)));
-            if (!taskTypes.SequenceEqual(TaskTypeOptions))
-            {
-                TaskTypeOptions = taskTypes;
-            }
-
-            CustomerFilter = CustomerOptions.FirstOrDefault(o => o.Id == customerId) ?? CustomerOptions[0];
-            TaskTypeFilter = TaskTypeOptions.FirstOrDefault(o => o.Id == taskTypeId) ?? TaskTypeOptions[0];
-        }
-        finally
-        {
-            _suppressReload = wasSuppressed;
-        }
-    }
-
-    private static List<FilterOption> Options(string all, IEnumerable<(long Id, string Name, bool Archived)> items)
-    {
-        var list = new List<FilterOption> { new(null, all) };
-        list.AddRange(items.Select(i => new FilterOption(i.Id, i.Archived ? $"{i.Name} (archived)" : i.Name)));
-        return list;
-    }
 }

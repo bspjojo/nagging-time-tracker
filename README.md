@@ -2,16 +2,17 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–3 of 9 have shipped:
+> **Status:** in development. Phases 1–4 of 9 have shipped:
 >
 > - **Tray:** start, stop and continue timers, including parallel ones.
 > - **Entries window:** review, filter, edit, delete and add entries.
+> - **CSV export:** of the filtered entries, from the Entries window or the tray.
 > - **Settings:** rename or archive customers and task types.
 >
-> There are no reminders, idle detection, export or installer yet. The full v1 design lives in
+> There are no reminders, idle detection or installer yet. The full v1 design lives in
 > [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
 > detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
-> [Phase 3](plan-phase3-entries-editor.md). This README gains usage and install instructions as
+> [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md). This README gains usage and install instructions as
 > those phases land.
 
 ## What v1 will do
@@ -82,7 +83,7 @@ dotnet run --project src/NaggingTimeTracker.App -- --data-dir $env:TEMP\ntt-dev 
 | Switch | Effect |
 |---|---|
 | `--data-dir <path>` | Use `<path>` instead of `%LOCALAPPDATA%\NaggingTimeTracker`. Each data folder gets its own single-instance lock, so this runs alongside your normal instance. |
-| `--show quick-panel` / `entries` / `settings` | Open that window once startup finishes. |
+| `--show quick-panel` / `entries` / `settings` / `export` | Open that window once startup finishes. |
 | `--no-background` | Accepted, but has no effect yet. From Phase 5 it keeps reminders and idle detection off, for UI tests. |
 
 An unknown switch shows an error box and exits with code 2. A startup failure shows the error
@@ -137,6 +138,13 @@ dotnet ef migrations script --project src/NaggingTimeTracker.Data   # review the
   through `App/Tracking/TrackingActions.cs`, which adds the confirm-and-retry dialog for parallel
   timers and the Discard/Keep prompt after a single stop. Don't call the service directly from a
   window and then re-implement that flow.
+- **The Entries and Export windows share one filter bar** (`App/Controls/FilterBar.xaml`,
+  `FilterBarViewModel`, `Core/Entries/FilterState.cs`). Change filtering there, not in either
+  window. Its control ids are `<Window>.<Control>`, taken from `FilterBarViewModel.AutomationPrefix`.
+- **CSV exports escape formula-like text.** A cell starting with `=`, `+`, `-`, `@`, tab or CR gets a
+  leading `'` (CsvHelper's `CsvInjection.Escape`), so Excel shows it as text instead of running it.
+  Exports are written to `<file>.tmp` and then moved over the target, so a failed export never
+  leaves a truncated file.
 - **Give list and grid rows an accessible name.** WPF otherwise exposes a row's view-model
   `ToString()` (e.g. `CatalogItemRow { Id = 1, … }`) to screen readers and UI tests. Set
   `AutomationProperties.Name` in the item container style, as the quick panel, Entries grid and

@@ -21,6 +21,7 @@ public sealed class StartupOptionsTests
     [Theory]
     [InlineData("entries", ShowTarget.Entries)]
     [InlineData("settings", ShowTarget.Settings)]
+    [InlineData("export", ShowTarget.Export)]
     public void Parses_window_targets(string value, ShowTarget expected)
     {
         Assert.Equal(expected, StartupOptions.Parse(["--show", value]).Show);
@@ -36,7 +37,7 @@ public sealed class StartupOptionsTests
     [InlineData("--verbose")]
     [InlineData("--data-dir")]
     [InlineData("--data-dir", "--no-background")]
-    [InlineData("--show", "export")]
+    [InlineData("--show", "reports")]
     [InlineData("--show", "")]
     [InlineData("--no-background", "--no-background")]
     [InlineData("--show", "quick-panel", "--show", "quick-panel")]

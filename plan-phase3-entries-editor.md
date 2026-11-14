@@ -1,6 +1,6 @@
 # Phase 3 — Entries Window, Editor and Catalog Settings (implementation plan)
 
-**Status:** Shipped — 1 commit. Build clean, 217/217 tests green, 36 scripted UI Automation checks of §7.2 pass, and the tray-menu items were checked by hand.
+**Status:** Shipped — 1 commit. Build clean, 217/217 tests green, 34 scripted UI Automation checks of §7.2 pass (reported as 36 in the Phase 3 commit message; the script has 34 checks), and the tray-menu items were checked by hand.
 
 **Sequencing note:** this doc expands **Phase 3** of [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (§12, "Phase 3 — Entries window + editor") into implementable detail. It builds on Phase 2 ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)), which has shipped (commit `3c86985`). The parent plan stays the source of truth for behaviour: §5 (entries window, editor, manage lists), §4.1 (amber running rows) and §1 (AutomationIds, `--show`). Deviations are listed in §8 of this doc and get folded back into the parent once this doc is approved. Phase 4 (CSV export) reuses the filter bar and the window manager from this phase.
 

@@ -179,6 +179,7 @@ public sealed class TrayHost(
         menu.Items.Add(new Separator());
 
         menu.Items.Add(Item("All entries…", "TrayMenu.AllEntries", windows.ShowEntries));
+        menu.Items.Add(Item("Export CSV…", "TrayMenu.Export", () => windows.ShowExport()));
         menu.Items.Add(Item("Settings…", "TrayMenu.Settings", () => windows.ShowSettings()));
         menu.Items.Add(new Separator());
 

@@ -416,17 +416,6 @@ Entries started during the idle period (`start_utc ≥ idleStart`) are left unto
 
 `ReminderHost` writes `settings['heartbeat_utc'] = now` every 60 s. `App/Idle/StartupDowntimeCheck.cs` runs at startup in the slot given in §1 (after migrations and backup, before `host.StartAsync()`, so before the first heartbeat write; skipped under `--no-background`). `Core/Idle/Downtime.Find` decides: if `heartbeat_utc` is set, idle detection is enabled, `now - heartbeat_utc ≥ idle threshold`, and some running entry started before the heartbeat, it shows `IdlePromptDialog` with `idleStart = heartbeat_utc` and the wording *"The app wasn't running from … to …"*. The choice goes through the same `IdleResolver`.
 
----|---|
-| **Keep it** | Nothing changes. |
-| **Discard idle time & continue** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`, then `Continue(entry, confirmedConcurrent: true, overlapReason: entry.overlap_reason)`. Each entry replaces itself, so the overall concurrency doesn't change. |
-| **Discard idle time & stop** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`. |
-
-Entries started during the idle period (`start_utc ≥ idleStart`) are left untouched by every option.
-
-### 7.3 App not running (crash, logoff, exit with timers running)
-
-`ReminderHost` writes `settings['heartbeat_utc'] = now` every 60 s. `App/Idle/StartupDowntimeCheck.cs` runs at startup in the slot given in §1 (after migrations and backup, before `host.StartAsync()`, so before the first heartbeat write; skipped under `--no-background`): if `heartbeat_utc` is set, entries are running, idle detection is enabled, and `now - heartbeat_utc ≥ idle threshold`, it shows `IdlePromptDialog` with `idleStart = heartbeat_utc` and the wording *"The app wasn't running from … to …"*. The choice goes through the same `IdleResolver`.
-
 ---
 
 ## 8. Settings

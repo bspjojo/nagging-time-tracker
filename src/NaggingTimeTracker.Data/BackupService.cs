@@ -28,17 +28,7 @@ public sealed partial class BackupService(string dbPath, string backupDir, ISett
         Directory.CreateDirectory(backupDir);
         var target = Path.Combine(backupDir, $"tracker-{today}.db");
         var temp = target + ".tmp";
-        File.Delete(temp);
-
-        // The online backup API takes a consistent snapshot, WAL content included. No pooling, so
-        // closing really releases the files before the move and the retention deletes.
-        using (var source = new SqliteConnection(ConnectionString(dbPath)))
-        using (var dest = new SqliteConnection(ConnectionString(temp)))
-        {
-            source.Open();
-            dest.Open();
-            source.BackupDatabase(dest);
-        }
+        CopyWithRetry(temp);
 
         // Copy to .tmp first, so a crash mid-copy never leaves a truncated backup that retention counts.
         File.Move(temp, target, overwrite: true);
@@ -54,6 +44,38 @@ public sealed partial class BackupService(string dbPath, string backupDir, ISett
         settings.Set(SettingKeys.LastBackupDate, today);
         return target;
     }
+
+    /// <summary>
+    /// The online backup API takes a consistent snapshot, WAL content included. It fails at once
+    /// with SQLITE_BUSY / SQLITE_LOCKED if another connection holds a lock at that moment (e.g. the
+    /// last connection to a WAL database checkpointing as it closes), so retry briefly. No pooling,
+    /// so closing really releases the files before the move and the retention deletes.
+    /// </summary>
+    private void CopyWithRetry(string temp)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            File.Delete(temp);
+            try
+            {
+                using var source = new SqliteConnection(ConnectionString(dbPath));
+                using var dest = new SqliteConnection(ConnectionString(temp));
+                source.Open();
+                dest.Open();
+                source.BackupDatabase(dest);
+                return;
+            }
+            catch (SqliteException ex) when (ex.SqliteErrorCode is SqliteBusy or SqliteLocked && attempt < MaxAttempts)
+            {
+                Thread.Sleep(RetryDelay);
+            }
+        }
+    }
+
+    private const int SqliteBusy = 5;
+    private const int SqliteLocked = 6;
+    private const int MaxAttempts = 20;
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
     private static string ConnectionString(string path) =>
         new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString();

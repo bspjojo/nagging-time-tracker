@@ -28,6 +28,11 @@ public sealed partial class EntryEditorViewModel : ObservableObject
     private readonly Entry? _original;
     private readonly string _originalCustomer = "";
     private readonly string _originalTaskType = "";
+
+    // The stored instants the time boxes were filled from. While a box still shows one, it stands
+    // for that exact instant (seconds included), not the whole minute it displays.
+    private readonly DateTimeOffset? _loadedStartUtc;
+    private DateTimeOffset? _loadedStopUtc;
     private bool _loading = true;
 
     public EntryEditorViewModel(
@@ -52,6 +57,8 @@ public sealed partial class EntryEditorViewModel : ObservableObject
         {
             Title = "Edit entry";
             IsRunningEntry = original.StopUtc is null;
+            _loadedStartUtc = original.StartUtc;
+            _loadedStopUtc = original.StopUtc;
             SetLocal(original.StartUtc, tz, out var sd, out var st);
             StartDate = sd;
             StartTime = st;
@@ -239,6 +246,7 @@ public sealed partial class EntryEditorViewModel : ObservableObject
             if (stop is null && stored.StopUtc is { } storedStop)
             {
                 // Stopped elsewhere (tray, nag) while this dialog was open.
+                _loadedStopUtc = storedStop;
                 SetLocal(storedStop, _time.LocalTimeZone, out var d, out var t);
                 StopDate = d;
                 StopTime = t;
@@ -269,7 +277,7 @@ public sealed partial class EntryEditorViewModel : ObservableObject
             return "Start time must be like 09:30.";
         }
 
-        var start = LocalTime.ToUtc(DateOnly.FromDateTime(sd), st, tz);
+        var start = LocalTime.ToUtcKeepingOriginal(DateOnly.FromDateTime(sd), st, tz, _loadedStartUtc);
         if (start.Error is not null)
         {
             return "Start: " + start.Error;
@@ -296,7 +304,7 @@ public sealed partial class EntryEditorViewModel : ObservableObject
                 return "Stop time must be like 17:30.";
             }
 
-            var stop = LocalTime.ToUtc(DateOnly.FromDateTime(ed), et, tz);
+            var stop = LocalTime.ToUtcKeepingOriginal(DateOnly.FromDateTime(ed), et, tz, _loadedStopUtc);
             if (stop.Error is not null)
             {
                 return "Stop: " + stop.Error;

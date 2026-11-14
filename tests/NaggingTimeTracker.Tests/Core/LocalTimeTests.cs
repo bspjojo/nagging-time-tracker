@@ -60,6 +60,74 @@ public sealed class LocalTimeTests
     }
 
     [Fact]
+    public void ToUtcKeepingOriginal_returns_the_original_instant_when_unchanged()
+    {
+        // 09:00:50.123 local; the editor shows 09:00.
+        var original = new DateTimeOffset(2026, 1, 5, 14, 0, 50, 123, TimeSpan.Zero);
+
+        var r = LocalTime.ToUtcKeepingOriginal(new DateOnly(2026, 1, 5), new TimeOnly(9, 0), NewYork, original);
+
+        Assert.Null(r.Error);
+        Assert.Equal(original, r.Utc);
+    }
+
+    [Fact]
+    public void ToUtcKeepingOriginal_converts_a_changed_time_at_minute_precision()
+    {
+        var original = new DateTimeOffset(2026, 1, 5, 14, 0, 50, 123, TimeSpan.Zero);
+
+        var r = LocalTime.ToUtcKeepingOriginal(new DateOnly(2026, 1, 5), new TimeOnly(9, 1), NewYork, original);
+
+        Assert.Equal(new DateTimeOffset(2026, 1, 5, 14, 1, 0, TimeSpan.Zero), r.Utc);
+    }
+
+    [Fact]
+    public void ToUtcKeepingOriginal_converts_a_changed_date()
+    {
+        var original = new DateTimeOffset(2026, 1, 5, 14, 0, 50, TimeSpan.Zero);
+
+        var r = LocalTime.ToUtcKeepingOriginal(new DateOnly(2026, 1, 6), new TimeOnly(9, 0), NewYork, original);
+
+        Assert.Equal(new DateTimeOffset(2026, 1, 6, 14, 0, 0, TimeSpan.Zero), r.Utc);
+    }
+
+    [Fact]
+    public void ToUtcKeepingOriginal_without_an_original_matches_ToUtc()
+    {
+        var r = LocalTime.ToUtcKeepingOriginal(new DateOnly(2026, 3, 8), new TimeOnly(2, 30), NewYork, null);
+
+        Assert.Null(r.Utc);
+        Assert.Contains("doesn't exist", r.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToUtcKeepingOriginal_keeps_the_later_instant_of_an_ambiguous_time()
+    {
+        // 01:30:20 EST, after the clocks went back; plain ToUtc would pick 01:30 EDT.
+        var original = new DateTimeOffset(2026, 11, 1, 6, 30, 20, TimeSpan.Zero);
+
+        var r = LocalTime.ToUtcKeepingOriginal(new DateOnly(2026, 11, 1), new TimeOnly(1, 30), NewYork, original);
+
+        Assert.Equal(original, r.Utc);
+    }
+
+    [Fact]
+    public void ToUtcKeepingOriginal_lets_a_sub_minute_entry_stay_valid()
+    {
+        // 09:00:10–09:00:40 shows as 09:00–09:00; both must keep their seconds.
+        var start = new DateTimeOffset(2026, 1, 5, 14, 0, 10, TimeSpan.Zero);
+        var stop = new DateTimeOffset(2026, 1, 5, 14, 0, 40, TimeSpan.Zero);
+        var day = new DateOnly(2026, 1, 5);
+
+        var s = LocalTime.ToUtcKeepingOriginal(day, new TimeOnly(9, 0), NewYork, start);
+        var e = LocalTime.ToUtcKeepingOriginal(day, new TimeOnly(9, 0), NewYork, stop);
+
+        Assert.Equal(start, s.Utc);
+        Assert.Equal(stop, e.Utc);
+        Assert.True(e.Utc > s.Utc);
+    }
+
+    [Fact]
     public void ToUtcLenient_on_a_normal_day_matches_ToUtc()
     {
         Assert.Equal(

@@ -47,6 +47,27 @@ public static class LocalTime
     }
 
     /// <summary>
+    /// Like <see cref="ToUtc"/>, but for an edit box that was filled from <paramref name="original"/>:
+    /// when the date and minute still show that instant's local date and HH:mm, the original
+    /// instant is returned unchanged (seconds, milliseconds and the clocks-went-back half included).
+    /// Only a changed field is converted, at minute precision.
+    /// </summary>
+    public static LocalToUtcResult ToUtcKeepingOriginal(DateOnly date, TimeOnly time, TimeZoneInfo tz, DateTimeOffset? original)
+    {
+        ArgumentNullException.ThrowIfNull(tz);
+        if (original is { } kept)
+        {
+            var local = TimeZoneInfo.ConvertTime(kept, tz);
+            if (DateOnly.FromDateTime(local.DateTime) == date && new TimeOnly(local.Hour, local.Minute) == time)
+            {
+                return new LocalToUtcResult(kept, null);
+            }
+        }
+
+        return ToUtc(date, time, tz);
+    }
+
+    /// <summary>
     /// A local date and time to UTC that never fails (shift times, reminder occurrences, day
     /// starts): a time inside a DST gap moves forward to the first valid minute; an ambiguous
     /// time resolves to the earlier instant.

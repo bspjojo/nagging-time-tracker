@@ -21,6 +21,7 @@ public sealed class TrayHost(
     CatalogService catalog,
     SettingsService settings,
     TrackingActions actions,
+    WindowManager windows,
     IServiceProvider services,
     TimeProvider time) : IDisposable
 {
@@ -177,6 +178,10 @@ public sealed class TrayHost(
         menu.Items.Add(_pause);
         menu.Items.Add(new Separator());
 
+        menu.Items.Add(Item("All entries…", "TrayMenu.AllEntries", windows.ShowEntries));
+        menu.Items.Add(Item("Settings…", "TrayMenu.Settings", () => windows.ShowSettings()));
+        menu.Items.Add(new Separator());
+
         menu.Items.Add(Item("Exit", "TrayMenu.Exit", RequestExit));
 
         menu.Opened += (_, _) => UpdateMenuState();
@@ -219,9 +224,8 @@ public sealed class TrayHost(
 
     private DateTimeOffset NextLocalMidnight()
     {
-        var tz = time.LocalTimeZone;
-        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time.NowUtc(), tz).DateTime);
-        return LocalDateRange.ToUtcRange(today, today, tz).ToUtc;
+        var today = time.TodayLocal();
+        return LocalDateRange.ToUtcRange(today, today, time.LocalTimeZone).ToUtc;
     }
 
     private void RequestExit()

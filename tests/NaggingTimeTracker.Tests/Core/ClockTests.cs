@@ -18,4 +18,13 @@ public sealed class ClockTests
         Assert.Equal(0, now.UtcTicks % TimeSpan.TicksPerMillisecond);
         Assert.Equal(TimeSpan.Zero, now.Offset);
     }
+
+    [Fact]
+    public void TodayLocal_uses_the_local_time_zone()
+    {
+        var tp = new FakeTimeProvider(new DateTimeOffset(2026, 3, 2, 3, 0, 0, TimeSpan.Zero));
+        tp.SetLocalTimeZone(TimeZoneInfo.FindSystemTimeZoneById("America/New_York"));
+
+        Assert.Equal(new DateOnly(2026, 3, 1), tp.TodayLocal());
+    }
 }

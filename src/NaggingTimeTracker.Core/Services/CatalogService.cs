@@ -40,6 +40,12 @@ public sealed class CatalogService(ICustomerRepository customers, ITaskTypeRepos
 
     public IReadOnlyList<TaskType> GetActiveTaskTypes() => taskTypes.GetActive();
 
+    /// <summary>All customers, archived included, ordered by name (filters and Settings lists).</summary>
+    public IReadOnlyList<Customer> GetAllCustomers() => customers.GetAll();
+
+    /// <summary>All task types, archived included, ordered by name.</summary>
+    public IReadOnlyList<TaskType> GetAllTaskTypes() => taskTypes.GetAll();
+
     public CatalogNames GetNames() => new(
         customers.GetAll().ToDictionary(c => c.Id, c => c.Name),
         taskTypes.GetAll().ToDictionary(t => t.Id, t => t.Name));

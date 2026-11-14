@@ -1,0 +1,48 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:NaggingTimeTracker.App.ViewModels"
+        AutomationProperties.AutomationId="SettingsWindow"
+        Title="Settings — Nagging Time Tracker"
+        Width="560" Height="440" MinWidth="420" MinHeight="300"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+    <Window.Resources>
+        <!-- One layout for both catalog tabs; ids come from the view-model's AutomationPrefix
+             (TabControl hosts the content outside the TabItem, so the tab can't supply them). -->
+        <DataTemplate x:Key="CatalogTab" DataType="{x:Type vm:CatalogListViewModel}">
+            <DockPanel Margin="10">
+                <StackPanel DockPanel.Dock="Right" Margin="10,0,0,0" Width="110">
+                    <Button Content="_Rename…" Command="{Binding RenameCommand}" Padding="8,3" Margin="0,0,0,6"
+                            AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}SettingsWindow.{0}RenameButton}" />
+                    <Button Content="{Binding ArchiveLabel}" Command="{Binding ToggleArchiveCommand}" Padding="8,3"
+                            AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}SettingsWindow.{0}ArchiveButton}" />
+                </StackPanel>
+                <CheckBox DockPanel.Dock="Bottom" Content="Show archived" IsChecked="{Binding ShowArchived}" Margin="0,8,0,0"
+                          AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}SettingsWindow.{0}sShowArchived}" />
+                <ListBox ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" DisplayMemberPath="Label"
+                         AutomationProperties.AutomationId="{Binding AutomationPrefix, StringFormat={}SettingsWindow.{0}sList}">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <!-- Screen readers and UI tests see the label, not the record's ToString. -->
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Archived}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource SubtleBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </DockPanel>
+        </DataTemplate>
+    </Window.Resources>
+
+    <TabControl Margin="8" SelectedIndex="{Binding SelectedTabIndex}" AutomationProperties.AutomationId="SettingsWindow.Tabs">
+        <TabItem Header="Customers"
+                 AutomationProperties.AutomationId="SettingsWindow.CustomersTab"
+                 Content="{Binding Customers}" ContentTemplate="{StaticResource CatalogTab}" />
+        <TabItem Header="Task types"
+                 AutomationProperties.AutomationId="SettingsWindow.TaskTypesTab"
+                 Content="{Binding TaskTypes}" ContentTemplate="{StaticResource CatalogTab}" />
+    </TabControl>
+</Window>

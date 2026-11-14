@@ -18,6 +18,14 @@ public sealed class StartupOptionsTests
         Assert.Equal(new StartupOptions(@"C:\tmp\ntt", ShowTarget.QuickPanel, true), options);
     }
 
+    [Theory]
+    [InlineData("entries", ShowTarget.Entries)]
+    [InlineData("settings", ShowTarget.Settings)]
+    public void Parses_window_targets(string value, ShowTarget expected)
+    {
+        Assert.Equal(expected, StartupOptions.Parse(["--show", value]).Show);
+    }
+
     [Fact]
     public void Show_value_is_case_insensitive()
     {
@@ -28,7 +36,7 @@ public sealed class StartupOptionsTests
     [InlineData("--verbose")]
     [InlineData("--data-dir")]
     [InlineData("--data-dir", "--no-background")]
-    [InlineData("--show", "entries")]
+    [InlineData("--show", "export")]
     [InlineData("--show", "")]
     [InlineData("--no-background", "--no-background")]
     [InlineData("--show", "quick-panel", "--show", "quick-panel")]

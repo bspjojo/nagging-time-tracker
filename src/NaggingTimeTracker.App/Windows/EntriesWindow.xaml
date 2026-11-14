@@ -1,0 +1,186 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.EntriesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        AutomationProperties.AutomationId="EntriesWindow"
+        Title="Entries — Nagging Time Tracker"
+        Width="1000" Height="600" MinWidth="700" MinHeight="360"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="FilterLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style x:Key="Marker" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+        <!-- Filter bar -->
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <WrapPanel>
+                <ComboBox Width="110" Margin="0,0,10,6" ItemsSource="{Binding Presets}" SelectedItem="{Binding Preset}"
+                          AutomationProperties.AutomationId="EntriesWindow.PresetCombo"
+                          AutomationProperties.Name="Date range" />
+                <TextBlock Text="From" Style="{StaticResource FilterLabel}" />
+                <DatePicker Width="125" Margin="0,0,10,6" SelectedDate="{Binding FromDate}" IsEnabled="{Binding IsCustom}"
+                            AutomationProperties.AutomationId="EntriesWindow.FromDate" />
+                <TextBlock Text="To" Style="{StaticResource FilterLabel}" />
+                <DatePicker Width="125" Margin="0,0,10,6" SelectedDate="{Binding ToDate}" IsEnabled="{Binding IsCustom}"
+                            AutomationProperties.AutomationId="EntriesWindow.ToDate" />
+                <ComboBox Width="150" Margin="0,0,10,6" ItemsSource="{Binding CustomerOptions}" SelectedItem="{Binding CustomerFilter}"
+                          AutomationProperties.AutomationId="EntriesWindow.CustomerFilter"
+                          AutomationProperties.Name="Customer" />
+                <ComboBox Width="150" Margin="0,0,10,6" ItemsSource="{Binding TaskTypeOptions}" SelectedItem="{Binding TaskTypeFilter}"
+                          AutomationProperties.AutomationId="EntriesWindow.TaskTypeFilter"
+                          AutomationProperties.Name="Task type" />
+                <Grid Width="170" Margin="0,0,0,6">
+                    <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.AutomationId="EntriesWindow.SearchBox"
+                             AutomationProperties.Name="Search notes and links" />
+                    <TextBlock Text="Search notes and links" Margin="5,0,0,0" VerticalAlignment="Center"
+                               Foreground="{StaticResource SubtleBrush}" IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </WrapPanel>
+            <TextBlock Text="{Binding FilterError}" Foreground="{StaticResource ErrorBrush}"
+                       AutomationProperties.AutomationId="EntriesWindow.FilterError" />
+        </StackPanel>
+
+        <!-- Footer -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <StackPanel Orientation="Horizontal">
+                <StackPanel.Resources>
+                    <Style TargetType="Button">
+                        <Setter Property="Padding" Value="10,3" />
+                        <Setter Property="Margin" Value="0,0,8,0" />
+                    </Style>
+                </StackPanel.Resources>
+                <Button Content="_New entry…" Command="{Binding NewEntryCommand}"
+                        AutomationProperties.AutomationId="EntriesWindow.NewButton" />
+                <Button Content="_Edit…" Command="{Binding EditCommand}"
+                        AutomationProperties.AutomationId="EntriesWindow.EditButton" />
+                <Button Content="_Continue" Command="{Binding ContinueCommand}"
+                        AutomationProperties.AutomationId="EntriesWindow.ContinueButton" />
+                <Button Content="_Delete" Command="{Binding DeleteCommand}"
+                        AutomationProperties.AutomationId="EntriesWindow.DeleteButton" />
+            </StackPanel>
+            <TextBlock Text="{Binding Summary}" HorizontalAlignment="Right" VerticalAlignment="Center" FontWeight="SemiBold"
+                       AutomationProperties.AutomationId="EntriesWindow.Summary" />
+        </DockPanel>
+
+        <!-- Grid -->
+        <DataGrid x:Name="Grid" ItemsSource="{Binding Rows}" SelectedItem="{Binding Selected}"
+                  AutomationProperties.AutomationId="EntriesWindow.Grid"
+                  IsReadOnly="True" SelectionMode="Single" SelectionUnit="FullRow" AutoGenerateColumns="False"
+                  CanUserSortColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                  HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                  HorizontalGridLinesBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                  MouseDoubleClick="Grid_MouseDoubleClick" PreviewKeyDown="Grid_PreviewKeyDown">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HighlightParallel}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource ParallelBackgroundBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="90" />
+                <DataGridTextColumn Header="Start" Binding="{Binding Start}" Width="60" />
+                <DataGridTemplateColumn Header="Stop" Width="90">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBlock Text="{Binding Stop}" />
+                                <Border BorderBrush="{StaticResource ParallelBrush}" BorderThickness="1" CornerRadius="3"
+                                        Padding="4,0" HorizontalAlignment="Left"
+                                        Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}">
+                                    <TextBlock Text="running" FontSize="11" Foreground="{StaticResource ParallelBrush}" />
+                                </Border>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Duration" Binding="{Binding Duration}" Width="65">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Right" />
+                            <Setter Property="Margin" Value="0,0,6,0" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
+                <DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="130" />
+                <DataGridTextColumn Header="Task type" Binding="{Binding TaskType}" Width="110" />
+                <DataGridTemplateColumn Header="Link" Width="150">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding Link}"
+                                           Visibility="{Binding HasWebLink, Converter={StaticResource BoolToVisibility}}">
+                                    <Hyperlink NavigateUri="{Binding LinkUri}" RequestNavigate="Link_RequestNavigate">
+                                        <Run Text="{Binding Link, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Link}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Link}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasWebLink}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Notes" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding NotesFirstLine}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Notes}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="28">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="↪" ToolTip="Continued from another entry" />
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="↪" Style="{StaticResource Marker}" ToolTip="Continued from another entry"
+                                       Visibility="{Binding IsContinuation, Converter={StaticResource BoolToVisibility}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="28">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="⧉" ToolTip="Overlaps another entry" />
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="⧉" Style="{StaticResource Marker}" ToolTip="{Binding OverlapToolTip}"
+                                       Visibility="{Binding Overlaps, Converter={StaticResource BoolToVisibility}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</Window>

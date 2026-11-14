@@ -63,9 +63,18 @@ public partial class App : Application
 
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
-            if (options.Show == ShowTarget.QuickPanel)
+            var windows = _host.Services.GetRequiredService<WindowManager>();
+            switch (options.Show)
             {
-                trayHost.ShowQuickPanel();
+                case ShowTarget.QuickPanel:
+                    trayHost.ShowQuickPanel();
+                    break;
+                case ShowTarget.Entries:
+                    windows.ShowEntries();
+                    break;
+                case ShowTarget.Settings:
+                    windows.ShowSettings();
+                    break;
             }
         }
         catch (Exception ex)
@@ -106,6 +115,13 @@ public partial class App : Application
         services.AddSingleton<TrayHost>();
         services.AddSingleton<QuickPanelViewModel>();
         services.AddTransient<QuickPanelWindow>();
+
+        services.AddSingleton<WindowManager>();
+        services.AddSingleton<EntryEditorFactory>();
+        services.AddTransient<EntriesViewModel>();
+        services.AddTransient<EntriesWindow>();
+        services.AddTransient<SettingsViewModel>();
+        services.AddTransient<SettingsWindow>();
 
         return builder.Build();
     }

@@ -53,6 +53,7 @@
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RunningRow" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
                     </Style>
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
@@ -171,6 +172,7 @@
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RecentRow" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
                     </Style>
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
@@ -187,6 +189,18 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- Footer -->
+            <Border BorderBrush="{DynamicResource {x:Static SystemColors.ControlLightBrushKey}}"
+                    BorderThickness="0,1,0,0" Margin="0,12,0,0" Padding="0,8,0,0">
+                <TextBlock HorizontalAlignment="Right">
+                    <Hyperlink Command="{Binding OpenEntriesCommand}"
+                               AutomationProperties.AutomationId="QuickPanel.AllEntriesLink">All entries…</Hyperlink>
+                    <Run Text="   " />
+                    <Hyperlink Command="{Binding OpenSettingsCommand}"
+                               AutomationProperties.AutomationId="QuickPanel.SettingsLink">Settings…</Hyperlink>
+                </TextBlock>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </Window>

@@ -17,6 +17,7 @@ public sealed partial class QuickPanelViewModel : ObservableObject
     private readonly CatalogService _catalog;
     private readonly TrackingActions _actions;
     private readonly IEntryRepository _entries;
+    private readonly WindowManager _windows;
     private readonly TimeProvider _time;
 
     public QuickPanelViewModel(
@@ -24,12 +25,14 @@ public sealed partial class QuickPanelViewModel : ObservableObject
         CatalogService catalog,
         TrackingActions actions,
         IEntryRepository entries,
+        WindowManager windows,
         TimeProvider time)
     {
         _tracking = tracking;
         _catalog = catalog;
         _actions = actions;
         _entries = entries;
+        _windows = windows;
         _time = time;
         _tracking.RunningEntriesChanged += (_, _) => Refresh();
     }
@@ -181,6 +184,12 @@ public sealed partial class QuickPanelViewModel : ObservableObject
 
         Refresh();
     }
+
+    [RelayCommand]
+    private void OpenEntries() => _windows.ShowEntries();
+
+    [RelayCommand]
+    private void OpenSettings() => _windows.ShowSettings();
 
     private IDisposable? BeginModal() => Host?.BeginModal();
 

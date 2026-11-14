@@ -5,6 +5,8 @@ public enum ShowTarget
 {
     None,
     QuickPanel,
+    Entries,
+    Settings,
 }
 
 public sealed class StartupOptionsException(string message) : Exception(message);
@@ -69,7 +71,9 @@ public sealed record StartupOptions(string? DataDir, ShowTarget Show, bool NoBac
         value.ToLowerInvariant() switch
         {
             "quick-panel" => ShowTarget.QuickPanel,
+            "entries" => ShowTarget.Entries,
+            "settings" => ShowTarget.Settings,
             _ => throw new StartupOptionsException(
-                $"Unknown --show value '{value}'. Valid values: quick-panel."),
+                $"Unknown --show value '{value}'. Valid values: quick-panel, entries, settings."),
         };
 }

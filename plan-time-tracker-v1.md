@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phases 3–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phases 4–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -221,7 +221,7 @@ The interfaces live in `Core/Abstractions/`, so Core and its services never refe
 
 Every method that changed a row raises `RunningEntriesChanged`. Bulk stops raise it once; no-ops don't raise it. The tray, the quick panel and the reminder engine subscribe to it.
 
-`Core/Services/CatalogService.cs` — `GetOrCreateCustomer(name)` and `GetOrCreateTaskType(name)`. They trim the name and reject empty input with `ArgumentException`. A case-insensitive match is returned (un-archiving it if it was archived); otherwise a new row is inserted. Every picker (§4, §5) resolves its typed text through these at submit time, so typing a new customer name simply creates it. For the Settings lists (§5) it also has `RenameCustomer(id, newName)` / `RenameTaskType(id, newName)`, which trim, reject empty input, and return `RenameResult.NameTaken` when another row already has that name (case-insensitive) instead of letting the unique index throw. It also has `SetCustomerArchived(id, bool)` / `SetTaskTypeArchived(id, bool)`.
+`Core/Services/CatalogService.cs` — `GetOrCreateCustomer(name)` and `GetOrCreateTaskType(name)`. They trim the name and reject empty input with `ArgumentException`. A case-insensitive match is returned (un-archiving it if it was archived); otherwise a new row is inserted. Every picker (§4, §5) resolves its typed text through these at submit time, so typing a new customer name simply creates it. For the filters and Settings lists it has `GetAllCustomers()` / `GetAllTaskTypes()` (archived included, by name). For the Settings lists (§5) it also has `RenameCustomer(id, newName)` / `RenameTaskType(id, newName)`, which trim, reject empty input, and return `RenameResult.NameTaken` when another row already has that name (case-insensitive) instead of letting the unique index throw. It also has `SetCustomerArchived(id, bool)` / `SetTaskTypeArchived(id, bool)`.
 
 **Defaults when starting:** the start form pre-fills customer and task type from the most recently **started** entry. On a fresh DB both fields start empty.
 
@@ -284,7 +284,7 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 
 ## 5. Entries window and editor
 
-**`App/Windows/EntriesWindow.xaml`:** non-modal, one instance at most (re-activated if already open).
+**`App/Windows/EntriesWindow.xaml`:** non-modal, one instance at most (re-activated if already open, via `App/Windows/WindowManager.cs`). Rows are newest first by start; columns aren't user-sortable; the default preset is *This week*; Stop shows `(+N)` for an entry that ends on a later local day. The editor's time boxes are 24-hour `HH:mm`.
 
 - Filter bar: date range (presets Today / This week (Mon-start) / Last week / This month / Custom from–to dates, the "to" date inclusive), Customer (including archived), Task type (including archived), a text search box. These map to `EntryFilter` via `LocalDateRange.ToUtcRange` (§2). Rows come from `IEntryRepository.QueryViews`.
 - `DataGrid` columns: Date, Start, Stop (shows a "running" badge if open), Duration (`h:mm`, running entries measured to now), Customer, Task type, Link (clickable; opens with `Process.Start(new ProcessStartInfo(link) { UseShellExecute = true })` only if it parses as an absolute `http`/`https` `Uri`, otherwise shown as plain text), Notes (first line), ↪ (marker if `continued_from_id` is set), ⧉ (marker if the entry overlaps another, via a single `IEntryRepository.GetOverlappingIds(FromUtc, ToUtc, nowUtc)` self-join query over the filtered range, not one query per row; tooltip shows `overlap_reason`).
@@ -294,11 +294,11 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 **`App/Windows/EntryEditorDialog.xaml`** (modal), used for both edit and manual create:
 
 - Start date + time and Stop date + time (WPF `DatePicker` + an `HH:mm` textbox for each, interpreted as local time). Stop may be empty only when the entry being edited is currently running. New manual entries require a stop.
-- Customer and Task type: the same editable combo boxes as the quick panel, resolved through `CatalogService` on Save.
+- Customer and Task type: the same editable combo boxes as the quick panel. On Save, text that still names the entry's current customer/type keeps that id; other text is resolved through `CatalogService.GetOrCreate…`. This way an unrelated edit never un-archives an archived customer or type.
 - External link: free text. If non-empty and not an absolute `http`/`https` URI, show a non-blocking hint ("Not a URL — saved as plain text"). Ticket IDs like `JIRA-123` are fine.
 - Notes: multiline.
 - A read-only *"Continued from: <date> <customer> · <type>"* link when `continued_from_id` is set; clicking it opens that entry in a second editor.
-- Overlap reason: a textbox shown only when `GetOverlapping(start, stop, excludeId: entry.Id, now)` returns rows for the current start/stop (an empty stop counts as now). It is re-queried whenever a start/stop field changes and parses.
+- Overlap reason: a stored reason is kept when the box is hidden (no overlaps any more). The box is shown only when `GetOverlapping(start, stop, excludeId: entry.Id, now)` returns rows for the current start/stop (an empty stop counts as now). It is re-queried whenever a start/stop field changes and parses.
 - **Validation:** stop must be after start (blocking error). If overlaps exist and the overlap reason is empty, show a non-blocking warning *"Overlaps N other entries"*. Saving is still allowed, matching the "allowed but confirmed" concurrency rule.
 - Save goes through `TrackingService.Save`.
 
@@ -577,9 +577,9 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] Exit confirmation when timers are running
 
 ### Phase 3 — Entries window + editor
-- [ ] `App/Windows/EntriesWindow.xaml` per §5, including the ⧉ column and the amber running rows from §4.1; add the *All entries…* menu item, footer link and `--show entries`
-- [ ] `App/Windows/EntryEditorDialog.xaml` per §5
-- [ ] `App/Windows/SettingsWindow.xaml` shell with Customers and Task types tabs per §5; add the *Settings…* menu item, footer link and `--show settings`
+- [x] `App/Windows/EntriesWindow.xaml` per §5, including the ⧉ column and the amber running rows from §4.1; add the *All entries…* menu item, footer link and `--show entries`
+- [x] `App/Windows/EntryEditorDialog.xaml` per §5
+- [x] `App/Windows/SettingsWindow.xaml` shell with Customers and Task types tabs per §5; add the *Settings…* menu item, footer link and `--show settings`
 
 ### Phase 4 — CSV export
 - [ ] `Core/Export/CsvExporter.cs` per §9

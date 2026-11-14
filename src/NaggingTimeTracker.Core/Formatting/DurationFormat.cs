@@ -15,6 +15,13 @@ public static class DurationFormat
             : string.Create(CultureInfo.InvariantCulture, $"{m}m");
     }
 
+    /// <summary>Whole minutes as "h:mm": "1:05", "0:00", "26:30". Negative clamps to zero.</summary>
+    public static string HoursMinutes(TimeSpan d)
+    {
+        var minutes = (long)Math.Max(0, Math.Floor(d.TotalMinutes));
+        return string.Create(CultureInfo.InvariantCulture, $"{minutes / 60}:{minutes % 60:00}");
+    }
+
     /// <summary>"1:23:45", "0:00:07", unbounded hours ("26:00:00"). Negative clamps to zero.</summary>
     public static string Clock(TimeSpan d)
     {

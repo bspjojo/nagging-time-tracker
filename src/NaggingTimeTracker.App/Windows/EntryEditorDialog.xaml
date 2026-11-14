@@ -1,0 +1,123 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.EntryEditorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        AutomationProperties.AutomationId="EntryEditor"
+        Title="{Binding Title}"
+        Width="480" SizeToContent="Height" ResizeMode="NoResize" ShowInTaskbar="False">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style TargetType="Label">
+            <Setter Property="Padding" Value="0,0,10,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource SubtleBrush}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+                <Trigger Property="Text" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="16">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Label Grid.Row="0" Content="St_art" Target="{Binding ElementName=StartDate}" />
+            <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Margin="0,3">
+                <DatePicker x:Name="StartDate" Width="140" SelectedDate="{Binding StartDate}"
+                            AutomationProperties.AutomationId="EntryEditor.StartDate" AutomationProperties.Name="Start date" />
+                <TextBox Width="60" Margin="6,0,0,0" VerticalContentAlignment="Center"
+                         Text="{Binding StartTime, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="EntryEditor.StartTime" AutomationProperties.Name="Start time" />
+            </StackPanel>
+
+            <Label Grid.Row="1" Content="St_op" Target="{Binding ElementName=StopDate}" VerticalAlignment="Top" Margin="0,6,0,0" />
+            <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3">
+                <StackPanel Orientation="Horizontal">
+                    <DatePicker x:Name="StopDate" Width="140" SelectedDate="{Binding StopDate}"
+                                AutomationProperties.AutomationId="EntryEditor.StopDate" AutomationProperties.Name="Stop date" />
+                    <TextBox Width="60" Margin="6,0,0,0" VerticalContentAlignment="Center"
+                             Text="{Binding StopTime, UpdateSourceTrigger=PropertyChanged}"
+                             AutomationProperties.AutomationId="EntryEditor.StopTime" AutomationProperties.Name="Stop time" />
+                </StackPanel>
+                <TextBlock Text="{Binding RunningHint, Mode=OneWay}" Style="{StaticResource Hint}"
+                           AutomationProperties.AutomationId="EntryEditor.RunningHint" />
+            </StackPanel>
+
+            <Label Grid.Row="2" Content="_Customer" Target="{Binding ElementName=CustomerCombo}" />
+            <ComboBox x:Name="CustomerCombo" Grid.Row="2" Grid.Column="1" Margin="0,3"
+                      IsEditable="True" IsTextSearchEnabled="True" ItemsSource="{Binding CustomerNames}"
+                      Text="{Binding CustomerText, UpdateSourceTrigger=PropertyChanged}"
+                      AutomationProperties.AutomationId="EntryEditor.CustomerCombo" />
+
+            <Label Grid.Row="3" Content="_Task type" Target="{Binding ElementName=TaskTypeCombo}" />
+            <ComboBox x:Name="TaskTypeCombo" Grid.Row="3" Grid.Column="1" Margin="0,3"
+                      IsEditable="True" IsTextSearchEnabled="True" ItemsSource="{Binding TaskTypeNames}"
+                      Text="{Binding TaskTypeText, UpdateSourceTrigger=PropertyChanged}"
+                      AutomationProperties.AutomationId="EntryEditor.TaskTypeCombo" />
+
+            <Label Grid.Row="4" Content="_Link" Target="{Binding ElementName=LinkBox}" VerticalAlignment="Top" Margin="0,6,0,0" />
+            <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,3">
+                <TextBox x:Name="LinkBox" Text="{Binding ExternalLink, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="EntryEditor.LinkBox" />
+                <TextBlock Text="{Binding LinkHint}" Style="{StaticResource Hint}"
+                           AutomationProperties.AutomationId="EntryEditor.LinkHint" />
+            </StackPanel>
+
+            <Label Grid.Row="5" Content="_Notes" Target="{Binding ElementName=NotesBox}" VerticalAlignment="Top" Margin="0,6,0,0" />
+            <TextBox x:Name="NotesBox" Grid.Row="5" Grid.Column="1" Margin="0,3" Height="80"
+                     AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                     Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                     AutomationProperties.AutomationId="EntryEditor.NotesBox" />
+
+            <TextBlock Grid.Row="6" Grid.Column="1" Margin="0,3"
+                       Visibility="{Binding HasContinuedFrom, Converter={StaticResource BoolToVisibility}}">
+                <Hyperlink Click="ContinuedFrom_Click" AutomationProperties.AutomationId="EntryEditor.ContinuedFromLink">
+                    <Run Text="{Binding ContinuedFromText, Mode=OneWay}" />
+                </Hyperlink>
+            </TextBlock>
+
+            <Label Grid.Row="7" Content="Overlap _reason" Target="{Binding ElementName=OverlapReasonBox}"
+                   VerticalAlignment="Top" Margin="0,6,0,0"
+                   Visibility="{Binding HasOverlaps, Converter={StaticResource BoolToVisibility}}" />
+            <StackPanel Grid.Row="7" Grid.Column="1" Margin="0,3"
+                        Visibility="{Binding HasOverlaps, Converter={StaticResource BoolToVisibility}}">
+                <TextBox x:Name="OverlapReasonBox" Text="{Binding OverlapReason, UpdateSourceTrigger=PropertyChanged}"
+                         AutomationProperties.AutomationId="EntryEditor.OverlapReasonBox" />
+                <TextBlock Text="{Binding OverlapWarning}" Style="{StaticResource Hint}" Foreground="{StaticResource ParallelBrush}"
+                           AutomationProperties.AutomationId="EntryEditor.OverlapWarning" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="{Binding Error}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                   AutomationProperties.AutomationId="EntryEditor.Error" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="_Save" IsDefault="True" Style="{StaticResource DialogButton}" Click="Save_Click"
+                    AutomationProperties.AutomationId="EntryEditor.SaveButton" />
+            <Button Content="Cancel" IsCancel="True" Style="{StaticResource DialogButton}"
+                    AutomationProperties.AutomationId="EntryEditor.CancelButton" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -2,12 +2,17 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–2 of 9 have shipped: you can start, stop and continue
-> timers from the tray, including parallel ones. There are no reminders, entries window, export
-> or installer yet. The full v1 design lives in [plan-time-tracker-v1.md](plan-time-tracker-v1.md)
-> (phases in §12); each shipped phase has a detailed plan
-> ([Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md)). This README
-> gains usage and install instructions as those phases land.
+> **Status:** in development. Phases 1–3 of 9 have shipped:
+>
+> - **Tray:** start, stop and continue timers, including parallel ones.
+> - **Entries window:** review, filter, edit, delete and add entries.
+> - **Settings:** rename or archive customers and task types.
+>
+> There are no reminders, idle detection, export or installer yet. The full v1 design lives in
+> [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
+> detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
+> [Phase 3](plan-phase3-entries-editor.md). This README gains usage and install instructions as
+> those phases land.
 
 ## What v1 will do
 
@@ -62,7 +67,8 @@ an interactive desktop and are excluded by it.
 The app runs in the notification area; it has no main window.
 
 - **Left-click** the icon to open the quick panel, where you start, stop and continue timers.
-- **Right-click** it for the menu, which includes **Exit**.
+- **Right-click** it for the menu: *All entries…*, *Settings…* and **Exit** live there. *All
+  entries…* and *Settings…* are also links at the bottom of the quick panel.
 - **One instance only:** launching it again just opens the running instance's panel.
 
 Its data lives in `%LOCALAPPDATA%\NaggingTimeTracker\tracker.db`, your real data location.
@@ -76,7 +82,7 @@ dotnet run --project src/NaggingTimeTracker.App -- --data-dir $env:TEMP\ntt-dev 
 | Switch | Effect |
 |---|---|
 | `--data-dir <path>` | Use `<path>` instead of `%LOCALAPPDATA%\NaggingTimeTracker`. Each data folder gets its own single-instance lock, so this runs alongside your normal instance. |
-| `--show quick-panel` | Open the quick panel once startup finishes. |
+| `--show quick-panel` / `entries` / `settings` | Open that window once startup finishes. |
 | `--no-background` | Accepted, but has no effect yet. From Phase 5 it keeps reminders and idle detection off, for UI tests. |
 
 An unknown switch shows an error box and exits with code 2. A startup failure shows the error
@@ -88,7 +94,7 @@ and exits with code 1.
 |---|---|
 | `src/NaggingTimeTracker.Core` | Domain records, services (tracking, catalog, settings), time helpers, repository interfaces. No EF Core, no WPF. |
 | `src/NaggingTimeTracker.Data` | EF Core / SQLite: `TrackerDbContext`, entity configurations, repositories, migrations. |
-| `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, dialogs, single-instance handling. |
+| `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, Entries window, entry editor, Settings window, dialogs, single-instance handling. `Windows/WindowManager.cs` keeps each non-modal window to a single instance. |
 | `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/`. Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
 | `tests/NaggingTimeTracker.Tests` | xUnit tests against a real SQLite file per test (`TestDb.cs`). |
 
@@ -131,6 +137,10 @@ dotnet ef migrations script --project src/NaggingTimeTracker.Data   # review the
   through `App/Tracking/TrackingActions.cs`, which adds the confirm-and-retry dialog for parallel
   timers and the Discard/Keep prompt after a single stop. Don't call the service directly from a
   window and then re-implement that flow.
+- **Give list and grid rows an accessible name.** WPF otherwise exposes a row's view-model
+  `ToString()` (e.g. `CatalogItemRow { Id = 1, … }`) to screen readers and UI tests. Set
+  `AutomationProperties.Name` in the item container style, as the quick panel, Entries grid and
+  Settings lists do.
 - **Windows that hide on deactivation must wrap their dialogs.** The quick panel hides itself when
   it loses focus, and opening a dialog makes it lose focus. So every dialog it opens runs inside
   `IModalHost.BeginModal()`.

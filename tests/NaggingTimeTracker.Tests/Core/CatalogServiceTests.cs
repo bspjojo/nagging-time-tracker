@@ -139,6 +139,21 @@ public sealed class CatalogServiceTests : IDisposable
         Assert.Single(ops.GetActive());
     }
 
+    [Fact]
+    public void GetAll_includes_archived_items_ordered_by_name()
+    {
+        var b = _service.GetOrCreateCustomer("beta");
+        _service.GetOrCreateCustomer("Alpha");
+        _service.SetCustomerArchived(b.Id, true);
+        var t = _service.GetOrCreateTaskType("zeta");
+        _service.GetOrCreateTaskType("Eta");
+        _service.SetTaskTypeArchived(t.Id, true);
+
+        Assert.Equal(["Alpha", "beta"], _service.GetAllCustomers().Select(c => c.Name));
+        Assert.Equal(["Eta", "zeta"], _service.GetAllTaskTypes().Select(x => x.Name));
+        Assert.True(_service.GetAllCustomers()[1].Archived);
+    }
+
     [Theory]
     [MemberData(nameof(Kinds))]
     public void GetNames_resolves_archived_items_and_unknown_ids(string kind)

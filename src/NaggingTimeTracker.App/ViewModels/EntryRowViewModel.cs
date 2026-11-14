@@ -1,11 +1,15 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using NaggingTimeTracker.Core.Formatting;
 using NaggingTimeTracker.Core.Model;
 
 namespace NaggingTimeTracker.App.ViewModels;
 
-/// <summary>One row of the Entries grid. Immutable; the grid rebuilds rows on reload.</summary>
-public sealed class EntryRowViewModel
+/// <summary>
+/// One row of the Entries grid. The grid rebuilds rows on reload; between reloads only a running
+/// row's <see cref="Duration"/> changes, through <see cref="Tick"/>.
+/// </summary>
+public sealed partial class EntryRowViewModel : ObservableObject
 {
     public EntryRowViewModel(EntryView view, DateTimeOffset nowUtc, TimeZoneInfo tz, bool overlaps, bool parallel)
     {
@@ -48,7 +52,9 @@ public sealed class EntryRowViewModel
 
     public bool IsRunning => Entry.StopUtc is null;
 
-    public string Duration { get; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccessibleName))]
+    private string _duration = "";
 
     public string Customer { get; }
 
@@ -78,4 +84,13 @@ public sealed class EntryRowViewModel
 
     /// <summary>Running entries are measured to <paramref name="nowUtc"/>.</summary>
     public TimeSpan Length(DateTimeOffset nowUtc) => (Entry.StopUtc ?? nowUtc) - Entry.StartUtc;
+
+    /// <summary>Re-measures a running row to <paramref name="nowUtc"/>; a stopped row doesn't change.</summary>
+    public void Tick(DateTimeOffset nowUtc)
+    {
+        if (IsRunning)
+        {
+            Duration = DurationFormat.HoursMinutes(Length(nowUtc));
+        }
+    }
 }

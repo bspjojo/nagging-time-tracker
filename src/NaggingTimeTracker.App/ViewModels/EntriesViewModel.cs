@@ -51,7 +51,7 @@ public sealed partial class EntriesViewModel : ObservableObject
         };
 
         _runningTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
-        _runningTicker.Tick += (_, _) => Reload();
+        _runningTicker.Tick += (_, _) => TickRunning();
 
         _tracking.RunningEntriesChanged += OnRunningEntriesChanged;
         Reload();
@@ -106,12 +106,9 @@ public sealed partial class EntriesViewModel : ObservableObject
 
         Selected = selectedId is { } id ? Rows.FirstOrDefault(r => r.Id == id) : null;
 
-        var total = TimeSpan.FromTicks(Rows.Sum(r => r.Length(now).Ticks));
-        Summary = string.Create(
-            CultureInfo.CurrentCulture,
-            $"{Rows.Count} {(Rows.Count == 1 ? "entry" : "entries")} · Total {DurationFormat.HoursMinutes(total)}");
+        UpdateSummary(now);
 
-        // Running rows' durations and the total move with the clock.
+        // Running rows' durations and the total move with the clock; TickRunning advances them in place.
         if (Rows.Any(r => r.IsRunning))
         {
             _runningTicker.Start();
@@ -120,6 +117,29 @@ public sealed partial class EntriesViewModel : ObservableObject
         {
             _runningTicker.Stop();
         }
+    }
+
+    /// <summary>
+    /// Advances the running rows' durations and the total without re-querying: only the clock moved.
+    /// Any real change (a start or stop anywhere, an edit, a delete, a filter change) reloads instead.
+    /// </summary>
+    private void TickRunning()
+    {
+        var now = _time.NowUtc();
+        foreach (var row in Rows)
+        {
+            row.Tick(now);
+        }
+
+        UpdateSummary(now);
+    }
+
+    private void UpdateSummary(DateTimeOffset now)
+    {
+        var total = TimeSpan.FromTicks(Rows.Sum(r => r.Length(now).Ticks));
+        Summary = string.Create(
+            CultureInfo.CurrentCulture,
+            $"{Rows.Count} {(Rows.Count == 1 ? "entry" : "entries")} · Total {DurationFormat.HoursMinutes(total)}");
     }
 
     [RelayCommand]

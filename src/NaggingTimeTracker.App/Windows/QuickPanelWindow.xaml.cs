@@ -35,6 +35,7 @@ public partial class QuickPanelWindow : Window, IModalHost
         SizeChanged += (_, _) => PlaceAtCorner();
         IsVisibleChanged += (_, _) =>
         {
+            _vm.IsPanelVisible = IsVisible;
             if (IsVisible)
             {
                 _ticker.Start();

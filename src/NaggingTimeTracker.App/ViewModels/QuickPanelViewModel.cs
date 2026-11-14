@@ -34,11 +34,17 @@ public sealed partial class QuickPanelViewModel : ObservableObject
         _entries = entries;
         _windows = windows;
         _time = time;
-        _tracking.RunningEntriesChanged += (_, _) => Refresh();
+        _tracking.RunningEntriesChanged += (_, _) => OnRunningEntriesChanged();
     }
 
     /// <summary>Set by the window; dialogs are owned by it and run inside its modal guard.</summary>
     public IModalHost? Host { get; set; }
+
+    /// <summary>
+    /// Set by the window from its visibility. While hidden, tracking changes don't refresh the
+    /// panel: nothing else reads its lists, and the window refreshes it again when it opens.
+    /// </summary>
+    public bool IsPanelVisible { get; set; }
 
     public ObservableCollection<RunningRowViewModel> Running { get; } = [];
 
@@ -195,6 +201,14 @@ public sealed partial class QuickPanelViewModel : ObservableObject
     private void OpenSettings() => _windows.ShowSettings();
 
     private IDisposable? BeginModal() => Host?.BeginModal();
+
+    private void OnRunningEntriesChanged()
+    {
+        if (IsPanelVisible)
+        {
+            Refresh();
+        }
+    }
 
     private void ReconcileRunning(CatalogNames names, DateTimeOffset now)
     {

@@ -62,7 +62,9 @@ trap { Write-Output "ERROR $_"; Get-Process NaggingTimeTracker -ErrorAction Sile
 $data = Join-Path $env:TEMP ("ntt-manual-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 
 # 9. Bad switch -> error box, exit code 2
-$p = Start-Process $Exe -ArgumentList '--show', 'entries' -PassThru
+# 'entries' became a valid --show value in Phase 3, so use one that will never exist. The scratch
+# --data-dir keeps a mistaken launch away from the real data folder.
+$p = Start-Process $Exe -ArgumentList '--data-dir', (Join-Path $env:TEMP 'ntt-badswitch'), '--show', 'bogus' -PassThru
 $box = $null; $sw = [Diagnostics.Stopwatch]::StartNew()
 while (-not $box -and $sw.ElapsedMilliseconds -lt 8000) {
     $box = $root.FindFirst($TS::Children, (New-Object System.Windows.Automation.PropertyCondition($AE::ProcessIdProperty, $p.Id)))

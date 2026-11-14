@@ -203,6 +203,7 @@ public sealed class NagQueue
     public void CloseCurrent();
     public Nag? Prune(IReadOnlySet<long> runningIds);    // returns the updated Current (or null if it was removed)
     public void ResolveCheckIn(long entryId);    // a due row was handled; Current closes when no due rows remain
+    public IReadOnlyList<long> UnansweredDueCheckIns();  // Current's due rows not yet handled: what a check-in snooze delays
 }
 ```
 
@@ -307,7 +308,7 @@ A singleton. Constructor: `(ReminderEngine engine, TrackingService tracking, Tra
   | CheckIn (per row) | **Stop** | `actions.StopSingle(id, owner: null)`, which offers TooShort (parent §3); then `queue.ResolveCheckIn(id)`. The prompt has **no owner**: the stop raises `RunningEntriesChanged`, and pruning can close the nag window, which would take an owned dialog down with it |
   | CheckIn (per row) | **Stop & add note** | close the nag; `tracking.Stop(id)`; `editors.Show(id, owner: null)` |
   | CheckIn (per row) | **Switch…** | close the nag; `tracking.Stop(id)`; `tray.ShowQuickPanel()` |
-  | CheckIn | **Snooze 15 / 30 / 60 min** | close; `engine.SnoozeCheckIns(all listed ids, S, now, interval)` |
+  | CheckIn | **Snooze 15 / 30 / 60 min** | take `queue.UnansweredDueCheckIns()` (the due rows not yet handled; read before closing, which clears the handled set), then close; `engine.SnoozeCheckIns(those ids, S, now, interval)`. Answered and not-due rows keep their own clock (parent §6.2) |
   | Scheduled | **Dismiss** | close |
   | Scheduled | **Snooze 15 min** | close; `engine.SnoozeScheduled(nag, now + 15 min)` |
   | any | **✕** (window close) | the kind's 15-min snooze (parent §6.4) |

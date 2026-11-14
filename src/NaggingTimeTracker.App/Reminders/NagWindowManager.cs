@@ -126,9 +126,12 @@ public sealed class NagWindowManager
 
     public void SnoozeCheckIns(Nag nag, TimeSpan by)
     {
+        // Read the rows before closing: closing clears the handled set. Answered and not-due rows
+        // keep their own clock.
+        var ids = ReferenceEquals(_queue.Current, nag) ? _queue.UnansweredDueCheckIns() : [];
         Close();
         var interval = TimeSpan.FromMinutes(_settings.Load().CheckinIntervalMin);
-        _engine.SnoozeCheckIns(nag.CheckIns.Select(i => i.Entry.Id), by, _time.NowUtc(), interval);
+        _engine.SnoozeCheckIns(ids, by, _time.NowUtc(), interval);
     }
 
     public void Dismiss() => Close();

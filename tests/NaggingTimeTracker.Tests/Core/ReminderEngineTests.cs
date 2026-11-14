@@ -142,6 +142,35 @@ public sealed class ReminderEngineTests
     }
 
     [Fact]
+    public void Snooze_delays_only_the_due_unanswered_rows()
+    {
+        // Interval 60. A and B due at +60; C started at +30, listed but not due until +90.
+        Entry a = Running(1, At(0)), b = Running(2, At(0)), c = Running(3, At(30));
+        var queue = new NagQueue();
+        queue.Enqueue(Kind(State(At(60), running: [a, b, c]), NagKind.CheckIn));
+        var nag = queue.ShowNextIfIdle(false)!;
+        Assert.Equal([(1L, true), (2L, true), (3L, false)], nag.CheckIns.Select(i => (i.Entry.Id, i.Due)));
+
+        _engine.CheckedIn(1, At(60)); // A: "Still on it"
+        queue.ResolveCheckIn(1);
+        _engine.SnoozeCheckIns(queue.UnansweredDueCheckIns(), TimeSpan.FromMinutes(15), At(60), TimeSpan.FromMinutes(60));
+
+        DueIds(At(74), []);
+        DueIds(At(75), [2]);      // B: exactly 15 min later
+        _engine.CheckedIn(2, At(75));
+        DueIds(At(89), []);
+        DueIds(At(90), [3]);      // C: its own start + interval, not pulled forward
+        _engine.CheckedIn(3, At(90));
+        DueIds(At(119), []);
+        DueIds(At(120), [1]);     // A: its own CheckedIn + interval, not re-snoozed
+
+        void DueIds(DateTimeOffset now, long[] expected) =>
+            Assert.Equal(
+                expected,
+                Kind(State(now, running: [a, b, c]), NagKind.CheckIn).SelectMany(n => n.CheckIns).Where(i => i.Due).Select(i => i.Entry.Id));
+    }
+
+    [Fact]
     public void No_burst_after_restart_for_entries_started_long_before()
     {
         var old = Running(1, AppStart.AddHours(-5));

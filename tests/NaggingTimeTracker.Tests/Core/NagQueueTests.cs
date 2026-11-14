@@ -113,4 +113,37 @@ public sealed class NagQueueTests
         Assert.True(_queue.Prune(Running(1)));
         Assert.Null(_queue.Current);
     }
+
+    [Fact]
+    public void Snooze_rows_are_the_due_rows_not_yet_answered()
+    {
+        _queue.Enqueue([CheckIn((1, true), (2, true), (3, false))]);
+        _queue.ShowNextIfIdle(false);
+        Assert.Equal([1L, 2L], _queue.UnansweredDueCheckIns());
+
+        _queue.ResolveCheckIn(1);
+        Assert.Equal([2L], _queue.UnansweredDueCheckIns()); // answered and not-due rows keep their clock
+    }
+
+    [Fact]
+    public void Snooze_rows_are_empty_without_a_check_in_on_screen()
+    {
+        Assert.Empty(_queue.UnansweredDueCheckIns());
+        _queue.Enqueue([Scheduled("a")]);
+        _queue.ShowNextIfIdle(false);
+        Assert.Empty(_queue.UnansweredDueCheckIns());
+    }
+
+    [Fact]
+    public void Answered_rows_do_not_carry_over_to_the_next_check_in()
+    {
+        _queue.Enqueue([CheckIn((1, true), (2, true)), CheckIn((1, true), (2, true))]);
+        _queue.ShowNextIfIdle(false);
+        _queue.ResolveCheckIn(1);
+        _queue.CloseCurrent(); // e.g. snoozed with row 1 answered
+
+        _queue.ShowNextIfIdle(false);
+        Assert.Empty(_queue.HandledCheckIns);
+        Assert.Equal([1L, 2L], _queue.UnansweredDueCheckIns());
+    }
 }

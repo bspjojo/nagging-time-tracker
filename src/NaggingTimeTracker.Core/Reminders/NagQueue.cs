@@ -107,6 +107,15 @@ public sealed class NagQueue
         }
     }
 
+    /// <summary>
+    /// The rows a check-in snooze delays: the current check-in's due rows not answered yet. Rows
+    /// answered "Still on it" and not-due rows keep their own clock. Empty when no check-in is shown.
+    /// </summary>
+    public IReadOnlyList<long> UnansweredDueCheckIns() =>
+        Current is { Kind: NagKind.CheckIn } nag
+            ? nag.CheckIns.Where(i => i.Due && !_handled.Contains(i.Entry.Id)).Select(i => i.Entry.Id).ToList()
+            : [];
+
     private bool AllDueHandled(Nag nag) => nag.CheckIns.Where(i => i.Due).All(i => _handled.Contains(i.Entry.Id));
 
     private static bool Keep(Nag nag, IReadOnlySet<long> runningIds)

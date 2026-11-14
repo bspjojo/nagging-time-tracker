@@ -9,6 +9,7 @@ public enum SettingsTab
 {
     WorkHours,
     CheckIns,
+    Idle,
     Reminders,
     Customers,
     TaskTypes,

@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phases 6–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phases 7–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -310,7 +310,7 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 
 ### 6.0 Engine
 
-`Core/Reminders/ReminderEngine.cs` (pure logic) exposes `Evaluate(ReminderState state) → IReadOnlyList<Nag>`. As built ([plan-phase5-reminders.md](plan-phase5-reminders.md) §2): the engine is a singleton **class that owns the in-memory bookkeeping** and has action methods (`SnoozeNotTracking`, `CheckedIn`, `SnoozeCheckIns`, `SnoozeScheduled`), so `ReminderState` carries only the inputs below, not the bookkeeping. `Core/Reminders/NagQueue.cs` holds the queue, presentation-hold and pruning rules; `App/Reminders/IIdleState.cs` is the seam idle detection (§7) plugs into. `ReminderState` carries:
+`Core/Reminders/ReminderEngine.cs` (pure logic) exposes `Evaluate(ReminderState state) → IReadOnlyList<Nag>`. As built ([plan-phase5-reminders.md](plan-phase5-reminders.md) §2): the engine is a singleton **class that owns the in-memory bookkeeping** and has action methods (`SnoozeNotTracking`, `CheckedIn`, `SnoozeCheckIns`, `SnoozeScheduled`), so `ReminderState` carries only the inputs below, not the bookkeeping. `Core/Reminders/NagQueue.cs` holds the queue, presentation-hold and pruning rules; `App/Reminders/IIdleState.cs` (`IsUserIdle`, `IsPromptOpen`) is the seam idle detection (§7) plugs into; `ReminderHost` passes `nags.HasPending || idle.IsPromptOpen` as `IsPromptOpen`. `ReminderState` carries:
 
 - the time
 - `AppSettings`
@@ -381,26 +381,42 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 
 ## 7. Idle detection
 
+As built ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)): the rules are pure Core code (`Core/Idle/IdleTracker.cs`, `Core/Idle/Downtime.cs`, `Core/Services/IdleResolver.cs`), and the App side is a thin shell. Neither `IdleMonitor` nor the startup check runs under `--no-background`.
+
 ### 7.1 Detection
 
-`App/Idle/IdleMonitor.cs` polls `GetLastInputInfo` every 15 s. It uses user32 P/Invoke via `[LibraryImport]` on a blittable `LASTINPUTINFO { uint cbSize; uint dwTime; }`; the App csproj sets `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>`, which the `LibraryImport` generator requires. Idle time is `unchecked((uint)Environment.TickCount64 - info.dwTime)` milliseconds, which survives the 49.7-day wrap of the 32-bit tick count.
+`App/Idle/IdleMonitor.cs` (an `IHostedService` that also implements `IIdleState`) polls `GetLastInputInfo` every 15 s on a UI-thread `DispatcherTimer`. It uses user32 P/Invoke via `[LibraryImport]` on a blittable `LASTINPUTINFO { uint cbSize; uint dwTime; }`; the App csproj sets `<AllowUnsafeBlocks>true</AllowUnsafeBlocks>`, which the `LibraryImport` generator requires. Idle time is `unchecked((uint)Environment.TickCount64 - info.dwTime)` milliseconds, which survives the 49.7-day wrap of the 32-bit tick count.
 
-It also subscribes to `Microsoft.Win32.SystemEvents.SessionSwitch` (`SessionLock` → idle starts now) and `PowerModeChanged` (`Suspend` → idle starts now). Both unsubscribe on dispose.
+It also subscribes to `Microsoft.Win32.SystemEvents.SessionSwitch` (`SessionLock` / `SessionUnlock`) and `PowerModeChanged` (`Suspend` / `Resume`), marshals each to the UI thread, and unsubscribes on stop. Every input goes to `IdleTracker`, a pure state machine:
 
-- Settings: idle threshold (default 10 min), enabled (default on).
-- State: `IdleStartUtc?`. It is set when idle time first reaches the threshold (to `now - idleTime`) or on lock/suspend. `IsUserIdle` (§6.0) = `IdleStartUtc != null`.
-- **Return** is detected when the polled idle time drops below 15 s, or on `SessionUnlock` / `PowerModeChanged.Resume`. On return, if `IdleStartUtc` is set and some running entry has `start_utc < IdleStartUtc`, `IdleMonitor` raises `ReturnedFromIdle(idleStartUtc, nowUtc)`. Either way, `IdleStartUtc` is then cleared.
+- Settings: idle threshold (default 10 min), enabled (default on). Turning it off resets the state on the next poll.
+- State: `IdleStartUtc?`. It is set to the **last input** when the polled idle time reaches the threshold, or on lock/suspend (so an auto-lock after inactivity counts from when the user left). An existing idle period keeps its start. `IsUserIdle` (§6.0) = `IdleStartUtc != null`.
+- **Return** is any input **after** `IdleStartUtc` (polled last input > `IdleStartUtc` + 1 s; the period ends at that input), or `SessionUnlock`. While locked or suspended, polls are ignored, so lock-screen input isn't a return. `Resume` alone doesn't end the period; the next real input or unlock does.
+- On return, the period `(IdleStartUtc, end)` is offered to the prompt only if it lasted **at least the threshold** (a short Win+L suppresses nags but doesn't prompt) and some running entry has `start_utc < IdleStartUtc`. Either way, `IdleStartUtc` is cleared. While the prompt is open, polls and session events are ignored.
 
 ### 7.2 Prompt on return
 
-`App/Windows/IdlePromptDialog.xaml` (topmost, activated, modal):
+`App/Windows/IdlePromptDialog.xaml` (topmost, activated, modal, no owner, shown in the taskbar):
 
-> You were away from **10:32** to **11:15** (43 min) while tracking *Dev Work · Acme* (and 1 other).
+> You were away from **10:32** to **11:15** (43m) while tracking *Acme · Dev Work* (and 1 other).
 
-The choice is applied by `Core/Services/IdleResolver.cs`, `Apply(IdleChoice choice, DateTimeOffset idleStartUtc)`, which reads the running entries itself:
+Times use the current culture's short time, or short date and time when the two local dates differ. No button is the default and none has initial focus, so keys typed on the way back in can't pick an option; ✕ / Alt+F4 / Esc mean **Keep it**.
+
+The choice is applied by `Core/Services/IdleResolver.cs`, `Apply(IdleChoice choice, DateTimeOffset idleStartUtc)`, which re-reads the affected running entries itself (`Affected(idleStartUtc)`, oldest first), so one stopped meanwhile is skipped:
 
 | Button | Effect |
 |---|---|
+| **Keep it** | Nothing changes. |
+| **Discard idle time & continue** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`, then `Continue(entry, confirmedConcurrent: true, overlapReason: entry.overlap_reason)`. Each entry replaces itself, so the overall concurrency doesn't change; the new entries start at the click. |
+| **Discard idle time & stop** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`. |
+
+Entries started during the idle period (`start_utc ≥ idleStart`) are left untouched by every option. Reminder bookkeeping isn't reset after the prompt (stakeholder decision): whatever fell due while idle fires on the next tick.
+
+### 7.3 App not running (crash, logoff, exit with timers running)
+
+`ReminderHost` writes `settings['heartbeat_utc'] = now` every 60 s. `App/Idle/StartupDowntimeCheck.cs` runs at startup in the slot given in §1 (after migrations and backup, before `host.StartAsync()`, so before the first heartbeat write; skipped under `--no-background`). `Core/Idle/Downtime.Find` decides: if `heartbeat_utc` is set, idle detection is enabled, `now - heartbeat_utc ≥ idle threshold`, and some running entry started before the heartbeat, it shows `IdlePromptDialog` with `idleStart = heartbeat_utc` and the wording *"The app wasn't running from … to …"*. The choice goes through the same `IdleResolver`.
+
+---|---|
 | **Keep it** | Nothing changes. |
 | **Discard idle time & continue** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`, then `Continue(entry, confirmedConcurrent: true, overlapReason: entry.overlap_reason)`. Each entry replaces itself, so the overall concurrency doesn't change. |
 | **Discard idle time & stop** | For each running entry with `start_utc < idleStart`: `StopAt(entry, idleStart)`. |
@@ -420,7 +436,7 @@ Entries started during the idle period (`start_utc ≥ idleStart`) are left unto
 - **General:** Start with Windows (writes/removes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NaggingTimeTracker` = `"<Environment.ProcessPath>"`), Open data folder (button). At every startup, if the Run value exists but points to a different path (e.g. after a reinstall to a different scope), the app rewrites it to the current `Environment.ProcessPath`.
 - **Work hours:** work days, start, end; not-tracking nag on/off + interval. The Work hours and Check-ins tabs **apply each valid change immediately** (on focus loss); there's no Save button. Tabs are selected by a `SettingsTab` tag, not by position.
 - **Check-ins:** on/off + interval.
-- **Idle:** on/off + threshold.
+- **Idle:** on/off + threshold (1–1440 min), between Check-ins and Reminders; it applies immediately like the Work hours and Check-ins tabs.
 - **Reminders:** custom reminders grid (§6.3).
 - **Customers** / **Task types:** rename / archive (§5).
 
@@ -605,12 +621,12 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] SettingsWindow tabs: Work hours (with an "(overnight)" hint shown when end ≤ start), Check-ins, Reminders
 
 ### Phase 6 — Idle detection
-- [ ] `App/Idle/IdleMonitor.cs` per §7.1 (+ `<AllowUnsafeBlocks>` in the App csproj); feeds `IsUserIdle`
-- [ ] `Core/Services/IdleResolver.cs` per §7.2
-- [ ] `tests/.../Core/IdleResolverTests.cs`: keep; discard-continue (stop at idleStart, new continued entry starts now, `overlap_reason` preserved, no confirmation); discard-stop; entry started during idle is untouched
-- [ ] `App/Windows/IdlePromptDialog.xaml` wired to `ReturnedFromIdle` per §7.2
-- [ ] `App/Idle/StartupDowntimeCheck.cs` per §7.3, wired into the §1 startup order (skipped when `heartbeat_utc` is unset or under `--no-background`)
-- [ ] SettingsWindow tab: Idle
+- [x] `App/Idle/IdleMonitor.cs` per §7.1 (+ `<AllowUnsafeBlocks>` in the App csproj); feeds `IsUserIdle` and `IsPromptOpen`; the rules live in `Core/Idle/IdleTracker.cs`
+- [x] `Core/Services/IdleResolver.cs` per §7.2
+- [x] `tests/.../Core/IdleResolverTests.cs`: keep; discard-continue (stop at idleStart, new continued entry starts now, `overlap_reason` preserved, no confirmation); discard-stop; entry started during idle is untouched; plus `IdleTrackerTests.cs` and `DowntimeTests.cs`
+- [x] `App/Windows/IdlePromptDialog.xaml` shown by `IdleMonitor` on return per §7.2
+- [x] `App/Idle/StartupDowntimeCheck.cs` per §7.3 (decision in `Core/Idle/Downtime.cs`), wired into the §1 startup order (skipped when `heartbeat_utc` is unset or under `--no-background`)
+- [x] SettingsWindow tab: Idle
 
 ### Phase 7 — Polish
 - [ ] SettingsWindow General tab: Start with Windows, Open data folder, Run-path self-heal per §8

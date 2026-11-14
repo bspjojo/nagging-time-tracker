@@ -7,7 +7,7 @@ using NaggingTimeTracker.Core.Time;
 namespace NaggingTimeTracker.App.ViewModels;
 
 /// <summary>
-/// The Work hours and Check-ins tabs. Every valid change is saved at once (text boxes on
+/// The Work hours, Check-ins and Idle tabs. Every valid change is saved at once (text boxes on
 /// losing focus); an invalid one shows an inline error and isn't saved.
 /// </summary>
 public sealed partial class ReminderSettingsViewModel : ObservableObject
@@ -37,6 +37,8 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
         _notTrackingIntervalText = _saved.NagNotTrackingIntervalMin.ToString(Inv);
         _checkInEnabled = _saved.CheckinEnabled;
         _checkInIntervalText = _saved.CheckinIntervalMin.ToString(Inv);
+        _idleEnabled = _saved.IdleEnabled;
+        _idleThresholdText = _saved.IdleThresholdMin.ToString(Inv);
         _loading = false;
         UpdateHints();
     }
@@ -57,6 +59,9 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
     [ObservableProperty] private string? _workHoursHint;
     [ObservableProperty] private string? _workHoursError;
     [ObservableProperty] private string? _checkInsError;
+    [ObservableProperty] private bool _idleEnabled;
+    [ObservableProperty] private string _idleThresholdText;
+    [ObservableProperty] private string? _idleError;
 
     partial void OnMonChanged(bool value) => TryApply();
     partial void OnTueChanged(bool value) => TryApply();
@@ -71,6 +76,8 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
     partial void OnNotTrackingIntervalTextChanged(string value) => TryApply();
     partial void OnCheckInEnabledChanged(bool value) => TryApply();
     partial void OnCheckInIntervalTextChanged(string value) => TryApply();
+    partial void OnIdleEnabledChanged(bool value) => TryApply();
+    partial void OnIdleThresholdTextChanged(string value) => TryApply();
 
     private bool Has(DayOfWeek d) => (_saved.WorkDaysMask & (1 << (int)d)) != 0;
 
@@ -121,6 +128,18 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
         else
         {
             CheckInsError = "Interval must be 1–1440 minutes.";
+        }
+
+        // Idle.
+        IdleError = null;
+        next = next with { IdleEnabled = IdleEnabled };
+        if (TryInterval(IdleThresholdText, out var threshold))
+        {
+            next = next with { IdleThresholdMin = threshold };
+        }
+        else
+        {
+            IdleError = "Threshold must be 1–1440 minutes.";
         }
 
         if (next != _saved)

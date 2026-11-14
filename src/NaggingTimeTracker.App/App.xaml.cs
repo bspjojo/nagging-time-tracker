@@ -3,6 +3,7 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NaggingTimeTracker.App.Idle;
 using NaggingTimeTracker.App.Reminders;
 using NaggingTimeTracker.App.Tracking;
 using NaggingTimeTracker.App.Tray;
@@ -57,6 +58,13 @@ public partial class App : Application
 
             _host = BuildHost(options, paths);
             _host.Services.GetRequiredService<DatabaseInitializer>().Initialize();
+
+            // Before the host starts, so ReminderHost hasn't overwritten the stale heartbeat yet (§7.3).
+            if (!options.NoBackground)
+            {
+                _host.Services.GetRequiredService<StartupDowntimeCheck>().Run();
+            }
+
             _host.StartAsync().GetAwaiter().GetResult();
 
             _trayHost = _host.Services.GetRequiredService<TrayHost>();
@@ -135,11 +143,21 @@ public partial class App : Application
         services.AddSingleton(sp => new ReminderEngine(sp.GetRequiredService<TimeProvider>().NowUtc()));
         services.AddSingleton<ScheduledReminderService>();
         services.AddSingleton<PresentationState>();
-        services.AddSingleton<IIdleState, NeverIdle>();
         services.AddSingleton<NagWindowManager>();
+
+        // Idle detection (§7). The startup check is gated in OnStartup.
+        services.AddSingleton<IdleResolver>();
+        services.AddSingleton<StartupDowntimeCheck>();
         if (!options.NoBackground)
         {
+            services.AddSingleton<IdleMonitor>();
+            services.AddSingleton<IIdleState>(sp => sp.GetRequiredService<IdleMonitor>());
+            services.AddHostedService(sp => sp.GetRequiredService<IdleMonitor>());
             services.AddHostedService<ReminderHost>();
+        }
+        else
+        {
+            services.AddSingleton<IIdleState, NeverIdle>();
         }
 
         return builder.Build();

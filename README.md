@@ -2,19 +2,23 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–5 of 9 have shipped:
+> **Status:** in development. Phases 1–6 of 9 have shipped:
 >
 > - **Tray:** start, stop and continue timers, including parallel ones.
 > - **Entries window:** review, filter, edit, delete and add entries.
 > - **CSV export:** of the filtered entries, from the Entries window or the tray.
 > - **Reminders:** nags when you are not tracking during work hours, a periodic "Still working on
 >   …?" check-in, and your own scheduled reminders. They're set up in Settings.
+> - **Idle detection:** when you come back from being away (no input, locked or asleep) with a
+>   timer running, it asks whether to keep, discard and continue, or discard and stop the idle
+>   time. It asks the same at startup if the app wasn't running.
 > - **Settings:** rename or archive customers and task types.
 >
-> There is no idle detection or installer yet. The full v1 design lives in
+> There is no installer yet. The full v1 design lives in
 > [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
 > detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
-> [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md), [Phase 5](plan-phase5-reminders.md). This README gains usage and install instructions as
+> [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md), [Phase 5](plan-phase5-reminders.md),
+> [Phase 6](plan-phase6-idle-detection.md). This README gains usage and install instructions as
 > those phases land.
 
 ## What v1 will do
@@ -86,7 +90,7 @@ dotnet run --project src/NaggingTimeTracker.App -- --data-dir $env:TEMP\ntt-dev 
 |---|---|
 | `--data-dir <path>` | Use `<path>` instead of `%LOCALAPPDATA%\NaggingTimeTracker`. Each data folder gets its own single-instance lock, so this runs alongside your normal instance. |
 | `--show quick-panel` / `entries` / `settings` / `export` | Open that window once startup finishes. |
-| `--no-background` | No reminders (and, from Phase 6, no idle detection), for UI tests. |
+| `--no-background` | No reminders, no idle detection and no startup downtime prompt, for UI tests. |
 
 An unknown switch shows an error box and exits with code 2. A startup failure shows the error
 and exits with code 1.
@@ -99,6 +103,7 @@ and exits with code 1.
 | `src/NaggingTimeTracker.Data` | EF Core / SQLite: `TrackerDbContext`, entity configurations, repositories, migrations. |
 | `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, Entries window, entry editor, Settings window, dialogs, single-instance handling. `Windows/WindowManager.cs` keeps each non-modal window to a single instance. |
 | `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/`. Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
+| `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–6), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
 | `tests/NaggingTimeTracker.Tests` | xUnit tests against a real SQLite file per test (`TestDb.cs`). |
 
 ### Database changes
@@ -145,8 +150,12 @@ dotnet ef migrations script --project src/NaggingTimeTracker.Data   # review the
   methods. `NagQueue` holds the one-at-a-time, presentation and pruning rules. `ReminderHost`
   runs every 30 s **on the UI thread**, so nothing needs locking. Test reminder behaviour in
   `ReminderEngineTests` / `NagQueueTests` with `FakeTimeProvider`, not by waiting on the app.
+- **Idle rules are pure Core code too.** `Core/Idle/IdleTracker.cs` is the away/return state
+  machine (lock, sleep, the threshold), `Downtime` the startup check and `IdleResolver` the only
+  code that rewrites entries for idle time. `App/Idle/IdleMonitor.cs` just polls
+  `GetLastInputInfo` and forwards `SystemEvents`; test idle behaviour in `IdleTrackerTests`.
 - **Settings tabs are selected by `SettingsTab` tag, not position**, so a phase can add a tab
-  anywhere. The Work hours and Check-ins tabs save each valid change as soon as a field loses
+  anywhere. The Work hours, Check-ins and Idle tabs save each valid change as soon as a field loses
   focus; there is no Save button.
 - **The Entries and Export windows share one filter bar** (`App/Controls/FilterBar.xaml`,
   `FilterBarViewModel`, `Core/Entries/FilterState.cs`). Change filtering there, not in either

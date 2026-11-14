@@ -98,7 +98,7 @@ public sealed class ReminderHost(
                 settings.GetInstant(SettingKeys.NotWorkingUntilUtc),
                 idle.IsUserIdle,
                 presentation.IsBusy(),
-                nags.HasPending);
+                nags.HasPending || idle.IsPromptOpen);
 
             var due = engine.Evaluate(state);
             foreach (var nag in due)

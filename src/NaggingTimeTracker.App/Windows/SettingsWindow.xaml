@@ -98,6 +98,25 @@
             </StackPanel>
         </TabItem>
 
+        <!-- Idle (§7) -->
+        <TabItem Header="Idle" Tag="{x:Static windows:SettingsTab.Idle}" DataContext="{Binding Reminder}"
+                 AutomationProperties.AutomationId="SettingsWindow.IdleTab">
+            <StackPanel Margin="12">
+                <CheckBox Content="_Ask what to do with the time when I come back from being away" IsChecked="{Binding IdleEnabled}"
+                          AutomationProperties.AutomationId="SettingsWindow.IdleEnabled" />
+                <StackPanel Orientation="Horizontal" Margin="20,6,0,0">
+                    <Label Content="Away _after" Target="{Binding ElementName=IdleThresholdBox}" Padding="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBox x:Name="IdleThresholdBox" Width="50" Text="{Binding IdleThresholdText}"
+                             AutomationProperties.AutomationId="SettingsWindow.IdleThreshold" />
+                    <TextBlock Text="minutes without keyboard or mouse input" Margin="6,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="Locking the PC or putting it to sleep also counts as away." Margin="20,6,0,0" TextWrapping="Wrap"
+                           Foreground="{x:Static SystemColors.GrayTextBrush}" />
+                <TextBlock Text="{Binding IdleError}" Foreground="{StaticResource ErrorBrush}" Margin="0,10,0,0" TextWrapping="Wrap"
+                           AutomationProperties.AutomationId="SettingsWindow.IdleError" />
+            </StackPanel>
+        </TabItem>
+
         <!-- Custom reminders (§6.3) -->
         <TabItem Header="Reminders" Tag="{x:Static windows:SettingsTab.Reminders}" DataContext="{Binding Scheduled}"
                  AutomationProperties.AutomationId="SettingsWindow.RemindersTab">

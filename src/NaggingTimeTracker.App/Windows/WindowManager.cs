@@ -4,8 +4,12 @@ using NaggingTimeTracker.Core.Entries;
 
 namespace NaggingTimeTracker.App.Windows;
 
+/// <summary>Settings tabs, selected by tag (not position) so later phases can add tabs freely.</summary>
 public enum SettingsTab
 {
+    WorkHours,
+    CheckIns,
+    Reminders,
     Customers,
     TaskTypes,
 }
@@ -27,7 +31,7 @@ public sealed class WindowManager(IServiceProvider services)
         Bring(_entries);
     }
 
-    public void ShowSettings(SettingsTab tab = SettingsTab.Customers)
+    public void ShowSettings(SettingsTab tab = SettingsTab.WorkHours)
     {
         _settings ??= Track(services.GetRequiredService<SettingsWindow>(), () => _settings = null);
         _settings.SelectTab(tab);

@@ -58,4 +58,28 @@ public sealed class LocalTimeTests
 
         Assert.Equal(new DateTimeOffset(2026, 11, 1, 5, 30, 0, TimeSpan.Zero), r.Utc);
     }
+
+    [Fact]
+    public void ToUtcLenient_on_a_normal_day_matches_ToUtc()
+    {
+        Assert.Equal(
+            new DateTimeOffset(2026, 1, 5, 14, 30, 0, TimeSpan.Zero),
+            LocalTime.ToUtcLenient(new DateOnly(2026, 1, 5), new TimeOnly(9, 30), NewYork));
+    }
+
+    [Fact]
+    public void ToUtcLenient_moves_a_skipped_time_to_the_first_valid_minute()
+    {
+        Assert.Equal(
+            new DateTimeOffset(2026, 3, 8, 7, 0, 0, TimeSpan.Zero),
+            LocalTime.ToUtcLenient(new DateOnly(2026, 3, 8), new TimeOnly(2, 30), NewYork));
+    }
+
+    [Fact]
+    public void ToUtcLenient_resolves_an_ambiguous_time_to_the_earlier_instant()
+    {
+        Assert.Equal(
+            new DateTimeOffset(2026, 11, 1, 5, 30, 0, TimeSpan.Zero),
+            LocalTime.ToUtcLenient(new DateOnly(2026, 11, 1), new TimeOnly(1, 30), NewYork));
+    }
 }

@@ -22,6 +22,9 @@ public sealed class TrackingService(IEntryRepository entries, TimeProvider time)
     /// <summary>Whether "Continue last" has anything to continue.</summary>
     public bool HasStoppedEntries() => entries.GetRecentStopped(1).Count > 0;
 
+    /// <summary>The entry "Continue last" would continue (latest stop), or null.</summary>
+    public Entry? LastStopped() => entries.GetRecentStopped(1).FirstOrDefault();
+
     public StartResult Start(StartRequest req)
     {
         ArgumentNullException.ThrowIfNull(req);

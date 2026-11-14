@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phases 5–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phases 6–9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -310,7 +310,7 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 
 ### 6.0 Engine
 
-`Core/Reminders/ReminderEngine.cs` (pure logic) exposes `Evaluate(ReminderState state) → IReadOnlyList<Nag>`. `ReminderState` carries:
+`Core/Reminders/ReminderEngine.cs` (pure logic) exposes `Evaluate(ReminderState state) → IReadOnlyList<Nag>`. As built ([plan-phase5-reminders.md](plan-phase5-reminders.md) §2): the engine is a singleton **class that owns the in-memory bookkeeping** and has action methods (`SnoozeNotTracking`, `CheckedIn`, `SnoozeCheckIns`, `SnoozeScheduled`), so `ReminderState` carries only the inputs below, not the bookkeeping. `Core/Reminders/NagQueue.cs` holds the queue, presentation-hold and pruning rules; `App/Reminders/IIdleState.cs` is the seam idle detection (§7) plugs into. `ReminderState` carries:
 
 - the time
 - `AppSettings`
@@ -323,7 +323,7 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 
 `Evaluate` returns the nags due and mutates the bookkeeping. The bookkeeping lives in memory and resets on restart; the exceptions are `reminders.last_fired_utc` and the `*_until_utc` settings, which persist.
 
-`App/Reminders/ReminderHost.cs` (`IHostedService`) runs a `PeriodicTimer` every **30 s**. Each tick it builds the state, calls `Evaluate`, and dispatches resulting nags to `NagWindowManager` on the UI thread. For each scheduled-reminder nag returned (`Nag.ReminderId` set), it calls `IReminderRepository.SetLastFired(id, now)`, because the engine itself doesn't touch storage. It also writes the heartbeat (§7.3) once per minute.
+`App/Reminders/ReminderHost.cs` (`IHostedService`) runs a `PeriodicTimer` every **30 s**. Each tick runs **on the UI thread** (awaited `Dispatcher.InvokeAsync`, so ticks never overlap): it builds the state, calls `Evaluate`, and hands resulting nags to `NagWindowManager`. A failed tick is logged to `Debug` and skipped. `ReminderHost` isn't registered under `--no-background`. For each scheduled-reminder nag returned (`Nag.ReminderId` set), it calls `IReminderRepository.SetLastFired(id, now)`, because the engine itself doesn't touch storage. It also writes the heartbeat (§7.3) once per minute.
 
 **Suppression, in order:**
 
@@ -356,7 +356,7 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 - Settings: interval (default 60 min), enabled (default on).
 - Per running entry: due when `now - max(entry.start_utc, lastCheckIn[entry.id] ?? appStartTime) ≥ interval`, where `appStartTime` is when the process started. That avoids a burst of check-ins after a restart.
 - All entries due on the same tick are combined into one nag. When ≥2 entries are running, the nag lists every running entry (due ones first; not-due ones get the same actions), with the amber "N timers running in parallel" header from §4.1.
-- Per entry, the nag offers **Still on it** (`lastCheckIn[id] = now`), **Stop**, **Stop & add note** (stop, then open `EntryEditorDialog`), and **Switch…** (stop, then `ShowQuickPanel`). **Snooze S min** sets `lastCheckIn[id] = now + S - interval` for every listed entry, so each comes due again exactly S minutes later.
+- Per entry, the nag offers **Still on it** (`lastCheckIn[id] = now`), **Stop** (through `TrackingActions.StopSingle` with no owner, so the TooShort prompt survives the nag closing), **Stop & add note** (stop, then open `EntryEditorDialog`; no TooShort prompt), and **Switch…** (stop, then `ShowQuickPanel`; no TooShort prompt). The nag closes once every *due* row is answered; rows of entries stopped elsewhere are pruned. **Snooze 15 / 30 / 60 min** sets `lastCheckIn[id] = now + S - interval` for every listed entry, so each comes due again exactly S minutes later.
 
 ### 6.3 Custom scheduled reminders
 
@@ -373,7 +373,8 @@ It is refreshed by a 30 s `DispatcherTimer` and on `RunningEntriesChanged`. The 
 - Borderless, `Topmost=true`, `ShowActivated=false` (doesn't steal keyboard focus while typing; buttons still work on click), `ShowInTaskbar=false`, positioned bottom-right of `SystemParameters.WorkArea`.
 - Only one is visible at a time. New nags go into a FIFO queue and the next is shown when the current one closes (and not presentation-busy, §6.0).
 - The tray icon uses the `attention-*` set (§4.1) while a nag is visible or queued.
-- No auto-dismiss. Closing via ✕ counts as **Snooze 15 min**.
+- No auto-dismiss. Closing via ✕ (or Alt+F4) counts as **Snooze 15 min**.
+- A not-tracking nag, shown or queued, is dropped as soon as a timer starts.
 - Any action that opens the quick panel or editor closes the nag first.
 
 ---
@@ -417,7 +418,7 @@ Entries started during the idle period (`start_utc ≥ idleStart`) are left unto
 `App/Windows/SettingsWindow.xaml`, a tabbed window opened from the tray:
 
 - **General:** Start with Windows (writes/removes `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NaggingTimeTracker` = `"<Environment.ProcessPath>"`), Open data folder (button). At every startup, if the Run value exists but points to a different path (e.g. after a reinstall to a different scope), the app rewrites it to the current `Environment.ProcessPath`.
-- **Work hours:** work days, start, end; not-tracking nag on/off + interval.
+- **Work hours:** work days, start, end; not-tracking nag on/off + interval. The Work hours and Check-ins tabs **apply each valid change immediately** (on focus loss); there's no Save button. Tabs are selected by a `SettingsTab` tag, not by position.
 - **Check-ins:** on/off + interval.
 - **Idle:** on/off + threshold.
 - **Reminders:** custom reminders grid (§6.3).
@@ -589,19 +590,19 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] `App/Windows/ExportWindow.xaml` (with the text search box and the running-entries filter) + pre-fill of all four filters from `EntriesWindow` per §9; add the *Export CSV…* menu item, footer link and `--show export`
 
 ### Phase 5 — Reminders
-- [ ] `Core/Reminders/WorkSchedule.cs` per §6.1
-- [ ] `tests/.../Core/WorkScheduleTests.cs`: day shift inside/outside; overnight shift Fri 22:00–06:00 → in at Sat 03:00, out at Sat 07:00, out at Sat 23:00 (Sat isn't a work day); overnight shift starting Sun when only Mon–Fri are checked → Mon 02:00 is out; DST spring-forward start time moved forward; start == end rejected
-- [ ] `Core/Reminders/ReminderEngine.cs`, `ReminderState`, `Nag` per §6
-- [ ] `tests/.../Core/ReminderEngineTests.cs` (`FakeTimeProvider`):
+- [x] `Core/Reminders/WorkSchedule.cs` per §6.1
+- [x] `tests/.../Core/WorkScheduleTests.cs`: day shift inside/outside; overnight shift Fri 22:00–06:00 → in at Sat 03:00, out at Sat 07:00, out at Sat 23:00 (Sat isn't a work day); overnight shift starting Sun when only Mon–Fri are checked → Mon 02:00 is out; DST spring-forward start time moved forward; start == end rejected
+- [x] `Core/Reminders/ReminderEngine.cs`, `ReminderState`, `Nag` per §6
+- [x] `tests/.../Core/ReminderEngineTests.cs` (`FakeTimeProvider`):
   - not-tracking: fires only inside a shift; interval measured from shift start and from last stop; honours snooze, "not working this shift" (clears at the shift end, including an overnight shift end) and pause
   - check-in: fires per entry; combines entries due on the same tick; with 2 running and 1 due, the nag lists both (due first); "Still on it" resets; no burst after restart
   - scheduled: fires once per occurrence (given `last_fired_utc` updated as `ReminderHost` would); missed same-day fires with the suffix; earlier days are skipped; returned nags carry `ReminderId`
   - suppression: idle and prompt-open (including "queued") return nothing; presentation-busy still returns nags
-- [ ] `Core/Reminders/ScheduledReminderService.cs` per §6.3 + `tests/.../Core/ScheduledReminderServiceTests.cs`: saving after today's time sets `last_fired_utc = now` (no instant fire); saving before today's time leaves it null; a weekday not in the mask leaves it null; empty title or `days_mask = 0` rejected
-- [ ] `App/Reminders/ReminderHost.cs` (`PeriodicTimer`, UI dispatch, `SetLastFired` for scheduled nags, heartbeat)
-- [ ] `App/Reminders/PresentationState.cs` (`SHQueryUserNotificationState`) per §6.0
-- [ ] `App/Reminders/NagWindowManager.cs` + `App/Windows/NagWindow.xaml` per §6.4
-- [ ] SettingsWindow tabs: Work hours (with an "(overnight)" hint shown when end ≤ start), Check-ins, Reminders
+- [x] `Core/Reminders/ScheduledReminderService.cs` per §6.3 + `tests/.../Core/ScheduledReminderServiceTests.cs`: saving after today's time sets `last_fired_utc = now` (no instant fire); saving before today's time leaves it null; a weekday not in the mask leaves it null; empty title or `days_mask = 0` rejected
+- [x] `App/Reminders/ReminderHost.cs` (`PeriodicTimer`, UI dispatch, `SetLastFired` for scheduled nags, heartbeat)
+- [x] `App/Reminders/PresentationState.cs` (`SHQueryUserNotificationState`) per §6.0
+- [x] `App/Reminders/NagWindowManager.cs` + `App/Windows/NagWindow.xaml` per §6.4
+- [x] SettingsWindow tabs: Work hours (with an "(overnight)" hint shown when end ≤ start), Check-ins, Reminders
 
 ### Phase 6 — Idle detection
 - [ ] `App/Idle/IdleMonitor.cs` per §7.1 (+ `<AllowUnsafeBlocks>` in the App csproj); feeds `IsUserIdle`

@@ -45,4 +45,24 @@ public static class LocalTime
         var offset = tz.IsAmbiguousTime(local) ? tz.GetAmbiguousTimeOffsets(local).Max() : tz.GetUtcOffset(local);
         return new LocalToUtcResult(new DateTimeOffset(local, offset).ToUniversalTime(), null);
     }
+
+    /// <summary>
+    /// A local date and time to UTC that never fails (shift times, reminder occurrences, day
+    /// starts): a time inside a DST gap moves forward to the first valid minute; an ambiguous
+    /// time resolves to the earlier instant.
+    /// </summary>
+    public static DateTimeOffset ToUtcLenient(DateOnly date, TimeOnly time, TimeZoneInfo tz)
+    {
+        ArgumentNullException.ThrowIfNull(tz);
+        var local = date.ToDateTime(time, DateTimeKind.Unspecified);
+
+        var limit = local.AddHours(24);
+        while (tz.IsInvalidTime(local) && local < limit)
+        {
+            local = local.AddMinutes(1);
+        }
+
+        var offset = tz.IsAmbiguousTime(local) ? tz.GetAmbiguousTimeOffsets(local).Max() : tz.GetUtcOffset(local);
+        return new DateTimeOffset(local, offset).ToUniversalTime();
+    }
 }

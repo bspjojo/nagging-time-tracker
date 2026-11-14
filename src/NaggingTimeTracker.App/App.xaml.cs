@@ -3,13 +3,16 @@ using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NaggingTimeTracker.App.Reminders;
 using NaggingTimeTracker.App.Tracking;
 using NaggingTimeTracker.App.Tray;
 using NaggingTimeTracker.App.ViewModels;
 using NaggingTimeTracker.App.Windows;
+using NaggingTimeTracker.Core.Reminders;
 using NaggingTimeTracker.Core.Services;
 using NaggingTimeTracker.Core.Settings;
 using NaggingTimeTracker.Core.Startup;
+using NaggingTimeTracker.Core.Time;
 using NaggingTimeTracker.Data;
 
 namespace NaggingTimeTracker.App;
@@ -127,6 +130,17 @@ public partial class App : Application
         services.AddTransient<SettingsWindow>();
         services.AddTransient<ExportViewModel>();
         services.AddTransient<ExportWindow>();
+
+        // Reminders (§6). The engine's start time is "app start" for the no-burst check-in rule.
+        services.AddSingleton(sp => new ReminderEngine(sp.GetRequiredService<TimeProvider>().NowUtc()));
+        services.AddSingleton<ScheduledReminderService>();
+        services.AddSingleton<PresentationState>();
+        services.AddSingleton<IIdleState, NeverIdle>();
+        services.AddSingleton<NagWindowManager>();
+        if (!options.NoBackground)
+        {
+            services.AddHostedService<ReminderHost>();
+        }
 
         return builder.Build();
     }

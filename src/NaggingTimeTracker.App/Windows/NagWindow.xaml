@@ -1,0 +1,115 @@
+<Window x:Class="NaggingTimeTracker.App.Windows.NagWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:NaggingTimeTracker.App.ViewModels"
+        AutomationProperties.AutomationId="NagWindow"
+        AutomationProperties.Name="{Binding Title}"
+        Title="Nagging Time Tracker"
+        WindowStyle="None" ResizeMode="NoResize" Topmost="True" ShowActivated="False" ShowInTaskbar="False"
+        Width="380" SizeToContent="Height"
+        BorderThickness="1" BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}"
+        Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <SolidColorBrush x:Key="NagAccent" Color="#D93025" />
+        <Style x:Key="NagButton" TargetType="Button">
+            <Setter Property="Padding" Value="8,3" />
+            <Setter Property="Margin" Value="0,0,6,6" />
+        </Style>
+    </Window.Resources>
+
+    <DockPanel>
+        <Border DockPanel.Dock="Left" Width="4" Background="{StaticResource NagAccent}" />
+        <StackPanel Margin="12,10,10,6">
+            <!-- Header -->
+            <DockPanel Margin="0,0,0,6">
+                <Button DockPanel.Dock="Right" Content="✕" Padding="6,0" BorderThickness="0" Background="Transparent"
+                        ToolTip="Snooze 15 minutes" Command="{Binding CloseBoxCommand}"
+                        AutomationProperties.AutomationId="NagWindow.CloseButton" AutomationProperties.Name="Close (snooze 15 minutes)" />
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" TextWrapping="Wrap" VerticalAlignment="Center"
+                           AutomationProperties.AutomationId="NagWindow.Title" />
+            </DockPanel>
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Visibility="{Binding HasMessage, Converter={StaticResource BoolToVisibility}}"
+                       AutomationProperties.AutomationId="NagWindow.Message" />
+
+            <!-- Not tracking -->
+            <WrapPanel Visibility="{Binding IsNotTracking, Converter={StaticResource BoolToVisibility}}">
+                <Button Content="Start…" Style="{StaticResource NagButton}" Command="{Binding StartCommand}"
+                        AutomationProperties.AutomationId="NagWindow.StartButton" />
+                <Button Content="{Binding ContinueLabel}" Style="{StaticResource NagButton}" Command="{Binding ContinueLastCommand}"
+                        Visibility="{Binding HasContinue, Converter={StaticResource BoolToVisibility}}"
+                        AutomationProperties.AutomationId="NagWindow.ContinueButton" />
+                <Button Content="Not working this shift" Style="{StaticResource NagButton}" Command="{Binding NotWorkingCommand}"
+                        AutomationProperties.AutomationId="NagWindow.NotWorkingButton" />
+            </WrapPanel>
+
+            <!-- Check-in -->
+            <StackPanel Visibility="{Binding IsCheckIn, Converter={StaticResource BoolToVisibility}}">
+                <Border Background="{StaticResource ParallelBackgroundBrush}" Padding="6,3" Margin="0,0,0,6"
+                        Visibility="{Binding ShowParallelHeader, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{Binding ParallelHeader}" FontWeight="Bold" Foreground="{StaticResource ParallelBrush}"
+                               AutomationProperties.AutomationId="NagWindow.ParallelHeader" />
+                </Border>
+                <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemContainerStyle>
+                        <Style TargetType="ContentPresenter">
+                            <Setter Property="AutomationProperties.AutomationId" Value="NagWindow.CheckInRow" />
+                            <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                        </Style>
+                    </ItemsControl.ItemContainerStyle>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:NagCheckInRowViewModel}">
+                            <StackPanel Margin="0,0,0,6">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsHandled}" Value="True">
+                                                <Setter Property="Opacity" Value="0.45" />
+                                                <Setter Property="IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" Margin="0,0,0,3" />
+                                <WrapPanel>
+                                    <Button Content="Still on it" Style="{StaticResource NagButton}"
+                                            Command="{Binding DataContext.StillOnItCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" AutomationProperties.AutomationId="NagWindow.CheckInRow.StillOnItButton" />
+                                    <Button Content="Stop" Style="{StaticResource NagButton}"
+                                            Command="{Binding DataContext.StopCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" AutomationProperties.AutomationId="NagWindow.CheckInRow.StopButton" />
+                                    <Button Content="Stop &amp; add note" Style="{StaticResource NagButton}"
+                                            Command="{Binding DataContext.StopAndNoteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" AutomationProperties.AutomationId="NagWindow.CheckInRow.StopAndNoteButton" />
+                                    <Button Content="Switch…" Style="{StaticResource NagButton}"
+                                            Command="{Binding DataContext.SwitchCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}" AutomationProperties.AutomationId="NagWindow.CheckInRow.SwitchButton" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <!-- Snooze choices (not tracking, check-in) -->
+            <WrapPanel Visibility="{Binding HasSnoozeChoices, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="Snooze:" VerticalAlignment="Top" Margin="0,4,8,0" Foreground="{StaticResource SubtleBrush}" />
+                <Button Content="15 min" Style="{StaticResource NagButton}" Command="{Binding SnoozeCommand}" CommandParameter="15"
+                        AutomationProperties.AutomationId="NagWindow.Snooze15Button" />
+                <Button Content="30 min" Style="{StaticResource NagButton}" Command="{Binding SnoozeCommand}" CommandParameter="30"
+                        AutomationProperties.AutomationId="NagWindow.Snooze30Button" />
+                <Button Content="1 h" Style="{StaticResource NagButton}" Command="{Binding SnoozeCommand}" CommandParameter="60"
+                        AutomationProperties.AutomationId="NagWindow.Snooze60Button" />
+            </WrapPanel>
+
+            <!-- Scheduled -->
+            <WrapPanel Visibility="{Binding IsScheduled, Converter={StaticResource BoolToVisibility}}">
+                <Button Content="Dismiss" Style="{StaticResource NagButton}" Command="{Binding DismissCommand}"
+                        AutomationProperties.AutomationId="NagWindow.DismissButton" />
+                <Button Content="Snooze 15 min" Style="{StaticResource NagButton}" Command="{Binding SnoozeCommand}" CommandParameter="15"
+                        AutomationProperties.AutomationId="NagWindow.Snooze15Button" />
+            </WrapPanel>
+        </StackPanel>
+    </DockPanel>
+</Window>

@@ -24,6 +24,7 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
         _settings = settings;
         _saved = settings.Load();
 
+        _alwaysOn = _saved.WorkAlwaysOn;
         _mon = Has(DayOfWeek.Monday);
         _tue = Has(DayOfWeek.Tuesday);
         _wed = Has(DayOfWeek.Wednesday);
@@ -42,6 +43,10 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
         _loading = false;
         UpdateHints();
     }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UsesSchedule))]
+    private bool _alwaysOn;
 
     [ObservableProperty] private bool _mon;
     [ObservableProperty] private bool _tue;
@@ -63,6 +68,10 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
     [ObservableProperty] private string _idleThresholdText;
     [ObservableProperty] private string? _idleError;
 
+    /// <summary>The days and times only apply when work hours aren't always on.</summary>
+    public bool UsesSchedule => !AlwaysOn;
+
+    partial void OnAlwaysOnChanged(bool value) => TryApply();
     partial void OnMonChanged(bool value) => TryApply();
     partial void OnTueChanged(bool value) => TryApply();
     partial void OnWedChanged(bool value) => TryApply();
@@ -95,7 +104,7 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
         var mask = Bit(Sun, DayOfWeek.Sunday) | Bit(Mon, DayOfWeek.Monday) | Bit(Tue, DayOfWeek.Tuesday)
                    | Bit(Wed, DayOfWeek.Wednesday) | Bit(Thu, DayOfWeek.Thursday) | Bit(Fri, DayOfWeek.Friday)
                    | Bit(Sat, DayOfWeek.Saturday);
-        next = next with { WorkDaysMask = mask, NagNotTrackingEnabled = NotTrackingEnabled };
+        next = next with { WorkAlwaysOn = AlwaysOn, WorkDaysMask = mask, NagNotTrackingEnabled = NotTrackingEnabled };
         if (!LocalTime.TryParseTime(WorkStartText, out var start) || !LocalTime.TryParseTime(WorkEndText, out var end))
         {
             WorkHoursError = "Times must be like 09:00.";
@@ -153,7 +162,9 @@ public sealed partial class ReminderSettingsViewModel : ObservableObject
 
     private void UpdateHints()
     {
-        WorkHoursHint = _saved.WorkDaysMask == 0
+        WorkHoursHint = _saved.WorkAlwaysOn
+            ? null
+            : _saved.WorkDaysMask == 0
             ? "No work days — the not-tracking reminder never fires."
             : WorkSchedule.IsOvernight(_saved.WorkStart, _saved.WorkEnd)
                 ? "(overnight — ends the next day)"

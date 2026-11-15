@@ -4,6 +4,7 @@ namespace NaggingTimeTracker.Core.Settings;
 public static class SettingKeys
 {
     public const string WorkDaysMask = "work_days_mask";
+    public const string WorkAlwaysOn = "work_always_on";
     public const string WorkStart = "work_start";
     public const string WorkEnd = "work_end";
     public const string NagNotTrackingEnabled = "nag_not_tracking_enabled";

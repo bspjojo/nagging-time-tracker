@@ -35,7 +35,7 @@ A Windows system-tray time tracker that nags you to keep your timesheet honest.
 - **Runs several timers at once, but only on purpose.** Starting a second timer asks for
   confirmation and an optional reason. The tray icon shows clearly when more than one is running.
 - **Nags you:**
-  - when nothing is being tracked during your work hours (overnight shifts are supported)
+  - when nothing is being tracked during your work hours (overnight shifts are supported, or set work hours to "always on" so any time the app is running counts)
   - with a periodic "Still working on X?" check-in while a timer runs
   - with custom reminders at set times on chosen weekdays
 

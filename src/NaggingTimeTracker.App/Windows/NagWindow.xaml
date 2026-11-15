@@ -40,7 +40,7 @@
                 <Button Content="{Binding ContinueLabel}" Style="{StaticResource NagButton}" Command="{Binding ContinueLastCommand}"
                         Visibility="{Binding HasContinue, Converter={StaticResource BoolToVisibility}}"
                         AutomationProperties.AutomationId="NagWindow.ContinueButton" />
-                <Button Content="Not working this shift" Style="{StaticResource NagButton}" Command="{Binding NotWorkingCommand}"
+                <Button Content="{Binding NotWorkingLabel}" Style="{StaticResource NagButton}" Command="{Binding NotWorkingCommand}"
                         AutomationProperties.AutomationId="NagWindow.NotWorkingButton" />
             </WrapPanel>
 

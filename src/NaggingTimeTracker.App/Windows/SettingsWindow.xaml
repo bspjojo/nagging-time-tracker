@@ -79,30 +79,34 @@
         <TabItem Header="Work hours" Tag="{x:Static windows:SettingsTab.WorkHours}" DataContext="{Binding Reminder}"
                  AutomationProperties.AutomationId="SettingsWindow.WorkHoursTab">
             <StackPanel Margin="12">
-                <TextBlock Text="Work days" Margin="0,0,0,4" />
-                <WrapPanel>
-                    <WrapPanel.Resources>
-                        <Style TargetType="CheckBox">
-                            <Setter Property="Margin" Value="0,0,12,0" />
-                        </Style>
-                    </WrapPanel.Resources>
-                    <CheckBox Content="Mon" IsChecked="{Binding Mon}" AutomationProperties.AutomationId="SettingsWindow.WorkDayMon" />
-                    <CheckBox Content="Tue" IsChecked="{Binding Tue}" AutomationProperties.AutomationId="SettingsWindow.WorkDayTue" />
-                    <CheckBox Content="Wed" IsChecked="{Binding Wed}" AutomationProperties.AutomationId="SettingsWindow.WorkDayWed" />
-                    <CheckBox Content="Thu" IsChecked="{Binding Thu}" AutomationProperties.AutomationId="SettingsWindow.WorkDayThu" />
-                    <CheckBox Content="Fri" IsChecked="{Binding Fri}" AutomationProperties.AutomationId="SettingsWindow.WorkDayFri" />
-                    <CheckBox Content="Sat" IsChecked="{Binding Sat}" AutomationProperties.AutomationId="SettingsWindow.WorkDaySat" />
-                    <CheckBox Content="Sun" IsChecked="{Binding Sun}" AutomationProperties.AutomationId="SettingsWindow.WorkDaySun" />
-                </WrapPanel>
-                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                    <Label Content="_From" Target="{Binding ElementName=WorkStartBox}" Padding="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBox x:Name="WorkStartBox" Width="60" Text="{Binding WorkStartText}"
-                             AutomationProperties.AutomationId="SettingsWindow.WorkStart" />
-                    <Label Content="_to" Target="{Binding ElementName=WorkEndBox}" Padding="10,0,6,0" VerticalAlignment="Center" />
-                    <TextBox x:Name="WorkEndBox" Width="60" Text="{Binding WorkEndText}"
-                             AutomationProperties.AutomationId="SettingsWindow.WorkEnd" />
-                    <TextBlock Text="{Binding WorkHoursHint}" Foreground="{StaticResource SubtleBrush}" Margin="10,0,0,0" VerticalAlignment="Center"
-                               AutomationProperties.AutomationId="SettingsWindow.OvernightHint" />
+                <CheckBox Content="_Always on — any time the app is running counts as work hours" Margin="0,0,0,10"
+                          IsChecked="{Binding AlwaysOn}" AutomationProperties.AutomationId="SettingsWindow.WorkAlwaysOn" />
+                <StackPanel IsEnabled="{Binding UsesSchedule}">
+                    <TextBlock Text="Work days" Margin="0,0,0,4" />
+                    <WrapPanel>
+                        <WrapPanel.Resources>
+                            <Style TargetType="CheckBox">
+                                <Setter Property="Margin" Value="0,0,12,0" />
+                            </Style>
+                        </WrapPanel.Resources>
+                        <CheckBox Content="Mon" IsChecked="{Binding Mon}" AutomationProperties.AutomationId="SettingsWindow.WorkDayMon" />
+                        <CheckBox Content="Tue" IsChecked="{Binding Tue}" AutomationProperties.AutomationId="SettingsWindow.WorkDayTue" />
+                        <CheckBox Content="Wed" IsChecked="{Binding Wed}" AutomationProperties.AutomationId="SettingsWindow.WorkDayWed" />
+                        <CheckBox Content="Thu" IsChecked="{Binding Thu}" AutomationProperties.AutomationId="SettingsWindow.WorkDayThu" />
+                        <CheckBox Content="Fri" IsChecked="{Binding Fri}" AutomationProperties.AutomationId="SettingsWindow.WorkDayFri" />
+                        <CheckBox Content="Sat" IsChecked="{Binding Sat}" AutomationProperties.AutomationId="SettingsWindow.WorkDaySat" />
+                        <CheckBox Content="Sun" IsChecked="{Binding Sun}" AutomationProperties.AutomationId="SettingsWindow.WorkDaySun" />
+                    </WrapPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Label Content="_From" Target="{Binding ElementName=WorkStartBox}" Padding="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBox x:Name="WorkStartBox" Width="60" Text="{Binding WorkStartText}"
+                                 AutomationProperties.AutomationId="SettingsWindow.WorkStart" />
+                        <Label Content="_to" Target="{Binding ElementName=WorkEndBox}" Padding="10,0,6,0" VerticalAlignment="Center" />
+                        <TextBox x:Name="WorkEndBox" Width="60" Text="{Binding WorkEndText}"
+                                 AutomationProperties.AutomationId="SettingsWindow.WorkEnd" />
+                        <TextBlock Text="{Binding WorkHoursHint}" Foreground="{StaticResource SubtleBrush}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                   AutomationProperties.AutomationId="SettingsWindow.OvernightHint" />
+                    </StackPanel>
                 </StackPanel>
                 <CheckBox Content="_Remind me when I'm not tracking anything during work hours" Margin="0,14,0,0"
                           IsChecked="{Binding NotTrackingEnabled}" AutomationProperties.AutomationId="SettingsWindow.NotTrackingEnabled" />

@@ -23,6 +23,7 @@ public sealed class SettingsServiceTests : IDisposable
     private static AppSettings Custom => new()
     {
         WorkDaysMask = 0b0111110 | 1,
+        WorkAlwaysOn = true,
         WorkStart = new TimeOnly(22, 0),
         WorkEnd = new TimeOnly(6, 30),
         NagNotTrackingEnabled = false,
@@ -40,6 +41,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.Equal(new AppSettings(), s);
         Assert.Equal(62, s.WorkDaysMask);
+        Assert.False(s.WorkAlwaysOn);
         Assert.Equal(new TimeOnly(9, 0), s.WorkStart);
         Assert.Equal(new TimeOnly(17, 0), s.WorkEnd);
         Assert.Equal(15, s.NagNotTrackingIntervalMin);
@@ -153,7 +155,7 @@ public sealed class SettingsServiceTests : IDisposable
         var reads = store.Gets;
         var second = service.Load();
 
-        Assert.Equal(9, reads);
+        Assert.Equal(10, reads);
         Assert.Equal(reads, store.Gets);
         Assert.Same(first, second);
     }
@@ -198,7 +200,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         var loaded = service.Load();
 
-        Assert.Equal(reads + 9, store.Gets);
+        Assert.Equal(reads + 10, store.Gets);
         Assert.Equal(new SettingsService(store).Load(), loaded);
     }
 

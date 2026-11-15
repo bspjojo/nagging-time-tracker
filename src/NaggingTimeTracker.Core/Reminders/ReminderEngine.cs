@@ -131,7 +131,10 @@ public sealed class ReminderEngine(DateTimeOffset appStartUtc)
             return null;
         }
 
-        var since = Max(shift.StartUtc, Max(_notTrackingLastFired, s.LastStopUtc));
+        // An always-on day starts at midnight, so its first interval runs from app start instead:
+        // a laptop switched on in the morning isn't nagged the moment it boots.
+        var start = shift.AllDay ? Max(shift.StartUtc, appStartUtc) : shift.StartUtc;
+        var since = Max(start, Max(_notTrackingLastFired, s.LastStopUtc));
         if (now - since < TimeSpan.FromMinutes(s.Settings.NagNotTrackingIntervalMin))
         {
             return null;

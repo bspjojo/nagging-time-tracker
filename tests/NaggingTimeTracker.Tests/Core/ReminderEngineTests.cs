@@ -92,6 +92,27 @@ public sealed class ReminderEngineTests
         Assert.Single(Kind(State(nextShift, settings: overnight, notWorking: end), NagKind.NotTracking));
     }
 
+    [Fact]
+    public void Always_on_counts_every_local_day_and_waits_an_interval_after_app_start()
+    {
+        var alwaysOn = new AppSettings { WorkAlwaysOn = true, WorkDaysMask = 0, CheckinEnabled = false };
+
+        // App started at 07:00 local; the first nag is at 07:15, though the day began at midnight.
+        Assert.Empty(Kind(State(AppStart.AddMinutes(14), settings: alwaysOn), NagKind.NotTracking));
+        var nag = Assert.Single(Kind(State(AppStart.AddMinutes(15), settings: alwaysOn), NagKind.NotTracking));
+
+        // Mon 2026-03-02 midnight to Tue midnight, New York (05:00Z).
+        var midnight = new DateTimeOffset(2026, 3, 2, 5, 0, 0, TimeSpan.Zero);
+        Assert.Equal(new Shift(midnight, midnight.AddDays(1), AllDay: true), nag.Shift);
+
+        // Outside the configured (empty) schedule, e.g. 23:00 Saturday, it still nags.
+        var saturday = new DateTimeOffset(2026, 3, 8, 3, 0, 0, TimeSpan.Zero);
+        Assert.Single(Kind(State(saturday, settings: alwaysOn), NagKind.NotTracking));
+
+        // "Not working today" until the next midnight.
+        Assert.Empty(Kind(State(saturday.AddMinutes(30), settings: alwaysOn, notWorking: saturday.AddHours(2)), NagKind.NotTracking));
+    }
+
     // ---- Check-in -----------------------------------------------------------------------------
 
     [Fact]

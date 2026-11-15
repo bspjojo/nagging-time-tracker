@@ -53,6 +53,9 @@ public sealed partial class NagViewModel : ObservableObject
 
     public string? ContinueLabel { get; }
 
+    /// <summary>"Not working" lasts until the shift ends: midnight when work hours are always on.</summary>
+    public string NotWorkingLabel => Nag.Shift is { AllDay: true } ? "Not working today" : "Not working this shift";
+
     public bool HasContinue => ContinueLabel is not null;
 
     public ObservableCollection<NagCheckInRowViewModel> Rows { get; } = [];

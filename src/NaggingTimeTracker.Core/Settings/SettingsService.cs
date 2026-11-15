@@ -29,6 +29,7 @@ public sealed class SettingsService(ISettingsStore store)
         return new AppSettings
         {
             WorkDaysMask = ReadInt(SettingKeys.WorkDaysMask, d.WorkDaysMask),
+            WorkAlwaysOn = ReadBool(SettingKeys.WorkAlwaysOn, d.WorkAlwaysOn),
             WorkStart = ReadTime(SettingKeys.WorkStart, d.WorkStart),
             WorkEnd = ReadTime(SettingKeys.WorkEnd, d.WorkEnd),
             NagNotTrackingEnabled = ReadBool(SettingKeys.NagNotTrackingEnabled, d.NagNotTrackingEnabled),
@@ -52,6 +53,7 @@ public sealed class SettingsService(ISettingsStore store)
         // Dropped first, so a write that fails partway leaves the next Load to re-read the store.
         _cached = null;
         store.Set(SettingKeys.WorkDaysMask, s.WorkDaysMask.ToString(Inv));
+        store.Set(SettingKeys.WorkAlwaysOn, Bool(s.WorkAlwaysOn));
         store.Set(SettingKeys.WorkStart, s.WorkStart.ToString(TimeFormat, Inv));
         store.Set(SettingKeys.WorkEnd, s.WorkEnd.ToString(TimeFormat, Inv));
         store.Set(SettingKeys.NagNotTrackingEnabled, Bool(s.NagNotTrackingEnabled));

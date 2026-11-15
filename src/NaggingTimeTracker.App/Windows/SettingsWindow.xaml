@@ -180,7 +180,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center"
-                                              AutomationProperties.Name="Enabled" />
+                                              AutomationProperties.Name="Enabled" AutomationProperties.AutomationId="SettingsWindow.ReminderEnabled" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

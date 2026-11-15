@@ -108,7 +108,7 @@
                 <Button Content="Dismiss" Style="{StaticResource NagButton}" Command="{Binding DismissCommand}"
                         AutomationProperties.AutomationId="NagWindow.DismissButton" />
                 <Button Content="Snooze 15 min" Style="{StaticResource NagButton}" Command="{Binding SnoozeCommand}" CommandParameter="15"
-                        AutomationProperties.AutomationId="NagWindow.Snooze15Button" />
+                        AutomationProperties.AutomationId="NagWindow.ScheduledSnoozeButton" />
             </WrapPanel>
         </StackPanel>
     </DockPanel>

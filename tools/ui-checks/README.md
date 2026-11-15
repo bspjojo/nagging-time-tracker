@@ -4,9 +4,12 @@ These are the per-phase manual-verification scripts: each one drives the real ap
 Windows UI Automation against a throwaway `--data-dir` and prints `PASS` / `FAIL` lines, then
 `DONE failed=N`. Their results are recorded in each phase's commit message.
 
-They are **not** part of `dotnet test`. The proper UI test suite is
+They are **not** part of `dotnet test`. The automated UI suite is
 `tests/NaggingTimeTracker.UiTests` (FlaUI, [plan-time-tracker-v1.md](../../plan-time-tracker-v1.md)
-§10), built in Phase 8; these scripts are reference material for it.
+§10, [plan-phase8-ui-tests.md](../../plan-phase8-ui-tests.md)). It covers the five main
+scenarios: start, parallel timers, editing, continue and export. These scripts stay for what
+it doesn't cover: nags, idle, backups, the Settings tabs, single instance, filters, and
+overwrite/locked-file export.
 
 ## Running
 

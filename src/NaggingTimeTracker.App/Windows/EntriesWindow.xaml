@@ -93,7 +93,8 @@
                             <Grid>
                                 <TextBlock TextTrimming="CharacterEllipsis" ToolTip="{Binding Link}"
                                            Visibility="{Binding HasWebLink, Converter={StaticResource BoolToVisibility}}">
-                                    <Hyperlink NavigateUri="{Binding LinkUri}" RequestNavigate="Link_RequestNavigate">
+                                    <Hyperlink NavigateUri="{Binding LinkUri}" RequestNavigate="Link_RequestNavigate"
+                                               AutomationProperties.AutomationId="EntriesWindow.Grid.Link">
                                         <Run Text="{Binding Link, Mode=OneWay}" />
                                     </Hyperlink>
                                 </TextBlock>

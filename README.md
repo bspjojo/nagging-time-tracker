@@ -2,7 +2,7 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–7 of 9 have shipped:
+> **Status:** in development. Phases 1–8 of 9 have shipped:
 >
 > - **Tray:** start, stop and continue timers, including parallel ones.
 > - **Entries window:** review, filter, edit, delete and add entries.
@@ -16,13 +16,14 @@ A Windows system-tray time tracker that nags you to keep your timesheet honest.
 >   and task types.
 > - **Backups:** a copy of the database each day you use the app; the newest 7 are kept in
 >   `backups\` next to `tracker.db`.
+> - **Automated UI tests** of the main windows (`tests/NaggingTimeTracker.UiTests`).
 >
 > There is no installer yet. The full v1 design lives in
 > [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
 > detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
 > [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md), [Phase 5](plan-phase5-reminders.md),
 > [Phase 6](plan-phase6-idle-detection.md),
-> [Phase 7](plan-phase7-polish.md). This README gains usage and install instructions as
+> [Phase 7](plan-phase7-polish.md), [Phase 8](plan-phase8-ui-tests.md). This README gains usage and install instructions as
 > those phases land.
 
 ## What v1 will do
@@ -69,11 +70,16 @@ dotnet tool restore
 ```powershell
 dotnet build                              # zero warnings: warnings are errors (Directory.Build.props)
 dotnet test --filter "Category!=UI"       # unit + integration tests
+dotnet test tests/NaggingTimeTracker.UiTests  # UI tests (FlaUI); needs an unlocked desktop
 dotnet run --project src/NaggingTimeTracker.App
 ```
 
-Use the `Category!=UI` filter from now on. The automated UI tests that arrive in Phase 8 need
-an interactive desktop and are excluded by it.
+The `Category!=UI` filter leaves out the UI tests, so it's safe anywhere. The UI tests drive the
+built app's windows on a temp `--data-dir`, one test at a time, and take about a minute. They
+need an interactive, unlocked desktop. **Don't touch the mouse or keyboard while they run**: a
+click elsewhere hides the quick panel. If the test run itself is killed partway, end any leftover
+`NaggingTimeTracker` processes from the build folder in Task Manager. They only ever use temp
+data folders.
 
 The app runs in the notification area; it has no main window.
 
@@ -109,6 +115,7 @@ and exits with code 1.
 | `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/` and the exe's icon `Assets/app.ico` (16–256 px). Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
 | `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–7), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
 | `tests/NaggingTimeTracker.Tests` | xUnit tests against a real SQLite file per test (`TestDb.cs`). |
+| `tests/NaggingTimeTracker.UiTests` | xUnit + FlaUI tests that launch the built exe (`AppFixture.cs`) and drive the quick panel, Entries window, editor and export. Every class is `[Trait("Category", "UI")]`. |
 
 ### Database changes
 

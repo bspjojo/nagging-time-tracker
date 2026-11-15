@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phase 7 shipped ([plan-phase7-polish.md](plan-phase7-polish.md)); Phases 8–9 not started.
+**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phase 7 shipped ([plan-phase7-polish.md](plan-phase7-polish.md)); Phase 8 shipped ([plan-phase8-ui-tests.md](plan-phase8-ui-tests.md)); Phase 9 not started.
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -44,6 +44,7 @@ installer/
 tools/
   make-icons.ps1              — generates the tray .ico files (§4)
   build-installer.ps1         — publish + build the MSI (§11)
+  ui-checks/                  — per-phase scripted UI Automation checks (Phases 2–7); kept for what §10 doesn't cover
 Directory.Build.props         — Nullable=enable, TreatWarningsAsErrors=true, LangVersion=latest
 .editorconfig
 .gitignore                    — standard VisualStudio template (bin/, obj/, .vs/, *.user)
@@ -462,10 +463,10 @@ The four state keys in the last row aren't part of `AppSettings`. They're read a
 | `task_type` | name |
 | `external_link` | as stored |
 | `notes` | as stored (newlines preserved inside quotes) |
-
-Any text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` (CsvHelper `CsvInjection.Escape`; stakeholder decision in [plan-phase4-csv-export.md](plan-phase4-csv-export.md)), so Excel shows it as text instead of running it as a formula.
 | `continued_from_id` | integer or blank |
 | `overlap_reason` | as stored or blank |
+
+Any text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` (CsvHelper `CsvInjection.Escape`; stakeholder decision in [plan-phase4-csv-export.md](plan-phase4-csv-export.md)), so Excel shows it as text instead of running it as a formula.
 
 `EntryView` is the Core record from `IEntryRepository.QueryViews` (§2). The window previews how many entries will be exported (and how many running ones are left out) and disables **Export…** when nothing matches. The file is written to `<path>.tmp` and then moved over the target, so a failure never leaves a truncated file. After a successful write, the window offers **Open file** / **Open folder**. Opening it from `EntriesWindow` re-applies the pre-fill even if the Export window is already open. Both windows share one filter bar (`App/Controls/FilterBar.xaml`, `Core/Entries/FilterState.cs`).
 
@@ -483,24 +484,24 @@ Any text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` 
 - unit tests: `dotnet test --filter "Category!=UI"`
 - UI tests: `dotnet test tests/NaggingTimeTracker.UiTests`
 
-**Harness** (`tests/NaggingTimeTracker.UiTests/AppFixture.cs`, `IDisposable`):
+**Harness** (`tests/NaggingTimeTracker.UiTests/AppFixture.cs`, `IDisposable`; as built in [plan-phase8-ui-tests.md](plan-phase8-ui-tests.md) §2):
 
-1. Creates a temp data dir.
-2. Launches `src/NaggingTimeTracker.App/bin/<Configuration>/net10.0-windows/NaggingTimeTracker.exe` via `FlaUI.Core.Application.Launch` with `--data-dir <temp> --no-background --show <window>`. The App project is a `ProjectReference` with `ReferenceOutputAssembly=false`, so it is built first.
-3. Waits (up to 10 s) for the target window by AutomationId.
-4. On dispose, closes the app (killing it after 5 s), then deletes the temp dir.
+1. `AppFixture.Launch(show, dataDir = null)` creates a temp data dir under `%TEMP%\ntt-ui-tests\` unless one is passed in. It deletes only a dir it created.
+2. It launches the exe via `FlaUI.Core.Application.Launch` with `--data-dir <dir> --no-background --show <window>`. The exe path is baked into the test assembly at build time (`AssemblyMetadata("AppExe")`, following `$(Configuration)`). The App project is a `ProjectReference` with `ReferenceOutputAssembly=false`, so it is built first.
+3. It waits (up to 10 s) for the target window by AutomationId. The quick panel can hide itself if it loses activation as it opens (e.g. right after the previous test's app is killed). If it hasn't appeared after 5 s, the fixture launches the exe once more on the same data dir, which signals the running copy to show it (single instance, §4), then waits 5 s more.
+4. On dispose it **kills** the app (the tray-only app has no close path from outside, and every write the tests check is already committed), then deletes the temp dir. `Relaunch(show)` kills the app and starts it again on the same dir.
 
-Helpers: `FindById(window, "QuickPanel.StartButton")` and similar, with a `Retry.WhileNull` timeout of 5 s.
+Helpers (`Ui.cs`): `FindById(parent, "QuickPanel.StartButton")` and similar, with a `Retry.WhileNull` timeout of 5 s; `WaitUntil` for every "after X, the UI shows Y" check; `InvokeAsync` for buttons that open a modal (a UIA `Invoke` blocks until the modal closes); `GridRow` finds an Entries row by its accessible name. `Seed.cs` writes entries into the DB before launch through `AddTrackerData` + `CatalogService`. Test parallelization is off for the assembly, since the tests share one desktop.
 
 **Scenarios** (one test class per file in `tests/NaggingTimeTracker.UiTests/`):
 
 | File | Scenario |
 |---|---|
-| `QuickPanelTests.cs` | Type a new customer `Acme` + new type `Research` and click Start → a Running row appears; dispose that app (so the single-instance mutex is released), then launch again with `--show entries` on the same data dir → the grid shows a running row for Acme · Research. `AppFixture` therefore takes an optional existing data dir, and deletes it only if it created it. |
+| `QuickPanelTests.cs` | Type a new customer `Acme` + new type `Research` and click Start → a Running row appears; `Relaunch("entries")` on the same data dir → the grid shows a running row for Acme · Research |
 | `ConcurrencyTests.cs` | With one running, start a second → `ConcurrencyDialog` appears; enter a reason and click **Run in parallel** → the quick panel shows the "2 timers running in parallel" banner and both rows; **Keep only this** on one leaves exactly one row |
 | `EntriesEditorTests.cs` | Open entries, double-click a row, change notes, Save → the grid shows the new notes; set stop before start → Save shows the blocking error and the dialog stays open |
-| `ContinueTests.cs` | Stop an entry, click Continue in Recent → a new running row with the same customer/type; the entries grid shows ↪ on it |
-| `ExportTests.cs` | Open export, click Export…, type a temp path into the `SaveFileDialog`'s *File name* box, press Enter → the file exists and its header row matches §9 |
+| `ContinueTests.cs` | Start then stop an entry (answer the too-short prompt with **Keep**), click Continue in Recent → a new running row with the same customer/type; open Entries through *All entries* → its row shows ↪ |
+| `ExportTests.cs` | Seed a stopped entry, open export, click Export…, set a temp path in the `SaveFileDialog`'s *File name* box (UIA3 ID `1001`) and press Save (`1`), with the keyboard as a fallback → the file exists, starts with a UTF-8 BOM, its header row matches §9, and it has the one data row |
 
 Seed data for a test goes through the UI or through pre-populating the temp DB with `TrackerDbContext`; the UiTests project references Data for that.
 
@@ -624,10 +625,10 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] `<ApplicationIcon>Assets\app.ico</ApplicationIcon>` in the App csproj (`app.ico` is the green circle at 16–256 px, generated by `tools/make-icons.ps1`; stakeholder decision, instead of the 32-px `Assets\tray\tracking-1.ico`)
 
 ### Phase 8 — Automated UI tests
-- [ ] Create `tests/NaggingTimeTracker.UiTests` (`net10.0-windows`, FlaUI.UIA3, `ProjectReference` to App with `ReferenceOutputAssembly=false`, and to Data) and add it to the sln
-- [ ] `AppFixture.cs` + `FindById` helpers per §10
-- [ ] Audit AutomationIds across every window against the §1 convention; add any missing
-- [ ] The five scenario files in the §10 table, each class marked `[Trait("Category", "UI")]`
+- [x] Create `tests/NaggingTimeTracker.UiTests` (`net10.0-windows`, FlaUI.UIA3, `ProjectReference` to App with `ReferenceOutputAssembly=false`, and to Data) and add it to the sln
+- [x] `AppFixture.cs` + `FindById` helpers per §10
+- [x] Audit AutomationIds across every window against the §1 convention; add any missing (`EntriesWindow.Grid.Link`, `SettingsWindow.ReminderEnabled`; the scheduled nag's duplicate `NagWindow.Snooze15Button` became `NagWindow.ScheduledSnoozeButton`)
+- [x] The five scenario files in the §10 table, each class marked `[Trait("Category", "UI")]`
 
 ### Phase 9 — Installer
 - [ ] `src/NaggingTimeTracker.App/Properties/PublishProfiles/win-x64.pubxml`: Release, `win-x64`, self-contained, `PublishSingleFile=true`, `IncludeNativeLibrariesForSelfExtract=true`

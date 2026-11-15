@@ -1,0 +1,55 @@
+# Builds the MSI and publishes it as a GitHub Release when a version tag is pushed:
+#   git tag v1.0.1 && git push origin v1.0.1
+# The tag must match <Version> in the App csproj, so an installed version always maps to a commit.
+# The download page (site/, pages.yml) links to the fixed-name asset of the latest release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Check the tag against the App version
+        id: version
+        run: |
+          $tag = '${{ github.ref_name }}'
+          if ($tag -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Tag '$tag' isn't v<major>.<minor>.<patch>." }
+          $version = $Matches[1]
+          $csproj = ([xml](Get-Content -Raw src/NaggingTimeTracker.App/NaggingTimeTracker.App.csproj)).Project.PropertyGroup |
+            ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1
+          if ($csproj -ne $version) { throw "Tag $tag doesn't match <Version>$csproj</Version> in the App csproj; bump it first." }
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      # UI tests need an interactive desktop, so they stay a local, on-demand run.
+      - name: Unit tests
+        run: dotnet test --filter "Category!=UI"
+
+      - name: Build the MSI
+        run: ./tools/build-installer.ps1 -Version ${{ steps.version.outputs.version }}
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          $versioned = "artifacts/NaggingTimeTracker-$v-x64.msi"
+          # A fixed name too, so releases/latest/download/NaggingTimeTracker-x64.msi always works.
+          Copy-Item $versioned artifacts/NaggingTimeTracker-x64.msi
+          gh release create '${{ github.ref_name }}' $versioned artifacts/NaggingTimeTracker-x64.msi `
+            --title "Nagging Time Tracker $v" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }

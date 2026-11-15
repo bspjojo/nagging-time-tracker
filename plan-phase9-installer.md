@@ -359,7 +359,7 @@ Paths: `$userDir = "$env:LOCALAPPDATA\Programs\NaggingTimeTracker"`, `$machineDi
 - **No repo `LICENSE` file** (stakeholder decision). The installer notice is installer-only.
 - **No removal of user data on uninstall**, and no "also delete my data" option (parent §11).
 - **No cleanup of other users' Run values** after an all-users uninstall (parent §11).
-- **No installer build in CI**, and no wixproj in the solution (§2.1).
+- **No installer build in CI** (superseded after v1: `.github/workflows/release.yml` builds and publishes the MSI when a `v*` tag is pushed; see [plan-time-tracker-v1.md](plan-time-tracker-v1.md) §11 *Releases*), and no wixproj in the solution (§2.1).
 - **No ARM64 or x86 MSI.** `win-x64` only.
 - **No Desktop shortcut.** Start Menu only (parent §11).
 - **No automated UAC or SmartScreen checks.** Sandbox can't show them (§6.3).

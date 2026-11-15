@@ -53,7 +53,9 @@ just for yourself (no admin rights) or for all users.
 
 ## Install
 
-Run `NaggingTimeTracker-<version>-x64.msi` (build it with `tools\build-installer.ps1`, below).
+Download the installer from **https://bspjojo.github.io/nagging-time-tracker/** (or any version
+from [Releases](https://github.com/bspjojo/nagging-time-tracker/releases)) and run
+`NaggingTimeTracker-<version>-x64.msi`. To build it yourself, see `tools\build-installer.ps1` below.
 
 - **Install** installs just for you: no admin rights, into
   `%LOCALAPPDATA%\Programs\NaggingTimeTracker\`.
@@ -109,6 +111,27 @@ It takes 10–15 minutes, opens and closes the Sandbox window on its own, and en
 `DONE failed=N`. `-Interactive` just opens Sandbox with the MSI mapped in, for clicking
 through the installer by hand. It needs Windows Sandbox enabled and `python` on `PATH`.
 
+### Releasing
+
+1. Bump `<Version>` in `src/NaggingTimeTracker.App/NaggingTimeTracker.App.csproj` and commit.
+2. Tag that commit and push the tag:
+
+   ```powershell
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+
+The **Release** workflow (`.github/workflows/release.yml`) then checks that the tag matches
+`<Version>`, runs the unit tests, builds the MSI with `tools\build-installer.ps1` and creates a
+GitHub Release with it attached twice: `NaggingTimeTracker-<version>-x64.msi` and
+`NaggingTimeTracker-x64.msi`. The download page links to the second through
+`releases/latest/download/`, so it always serves the newest release without changing. Run the UI
+tests and the Sandbox install check locally before tagging; CI has no desktop for them.
+
+The download page is `site/index.html`, published by the **Pages** workflow
+(`.github/workflows/pages.yml`) whenever `site/` changes on `main`. It needs *Settings → Pages →
+Source: GitHub Actions*.
+
 The `Category!=UI` filter leaves out the UI tests, so it's safe anywhere. The UI tests drive the
 built app's windows on a temp `--data-dir`, one test at a time, and take about a minute. They
 need an interactive, unlocked desktop. **Don't touch the mouse or keyboard while they run**: a
@@ -149,6 +172,8 @@ and exits with code 1.
 | `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, Entries window, entry editor, Settings window, dialogs, single-instance handling. `Windows/WindowManager.cs` keeps each non-modal window to a single instance. |
 | `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/` and the exe's icon `Assets/app.ico` (16–256 px). Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
 | `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–7), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
+| `.github/workflows/` | `release.yml` (tag `v*` → GitHub Release with the MSI) and `pages.yml` (publishes `site/`). |
+| `site/` | The download page on GitHub Pages: one static `index.html`, plus the app icon as `favicon.ico`. |
 | `installer/` | WiX v5 MSI: `Package.wxs`, `License.rtf` (the installer's as-is notice). Not in the solution; built by `tools/build-installer.ps1`. |
 | `tools/build-installer.ps1` | Publishes the app (`Properties/PublishProfiles/win-x64.pubxml`) and builds the MSI into `artifacts\` (git-ignored). |
 | `tools/installer-checks/` | `run-sandbox.ps1` (host) and `guest-checks.ps1` (runs inside Windows Sandbox): the scripted install checks. |

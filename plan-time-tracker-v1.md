@@ -546,6 +546,8 @@ Seed data for a test goes through the UI or through pre-populating the temp DB w
 
 **Install checks:** `tools/installer-checks/run-sandbox.ps1 -Msi <v1> -UpgradeMsi <v2>` runs them in Windows Sandbox, scripted end to end ([plan-phase9-installer.md](plan-phase9-installer.md) §6): per-user install, launch from the shortcut, upgrade while running (the app closes, a running timer survives, the Run value stays), refused downgrade, uninstall (data kept, Run value removed), then all users. The silent per-user steps pass `ALLUSERS=""`, because Sandbox's account is privileged and `ALLUSERS=2` would pick the per-machine folder. The dialogs, UAC and SmartScreen are checked by hand (`-Interactive`, then on a real PC).
 
+**Releases** (added after v1): pushing a tag `v<x.y.z>` that matches the App's `<Version>` runs `.github/workflows/release.yml` on `windows-latest`. It runs the unit tests (not the UI tests: no desktop), runs `tools/build-installer.ps1 -Version <x.y.z>`, and creates a GitHub Release with the MSI attached as `NaggingTimeTracker-<x.y.z>-x64.msi` and, under a fixed name, `NaggingTimeTracker-x64.msi`. The download page `site/index.html` (GitHub Pages, published by `.github/workflows/pages.yml`) links to `releases/latest/download/NaggingTimeTracker-x64.msi`, which always resolves to the newest release. The app itself never contacts GitHub, so this is no update feed (Non-goals).
+
 **Signing:** none for now. Windows SmartScreen will warn on first run of the MSI (*More info → Run anyway*); the README says so. The script has a clearly marked no-op `# Signing:` step where `signtool sign` for the exe and the MSI goes later.
 
 ---

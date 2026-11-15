@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nagging Time Tracker</title>
+  <meta name="description" content="A Windows system-tray time tracker that nags you to keep your timesheet honest. Free download for Windows 10 and 11.">
+  <link rel="icon" href="favicon.ico">
+  <style>
+    :root {
+      --bg: #f7f8f6;
+      --surface: #ffffff;
+      --text: #1d2420;
+      --muted: #5b665f;
+      --border: #dfe4e0;
+      --accent: #1f8a4c;
+      --accent-strong: #176b3b;
+      --accent-text: #ffffff;
+      --note-bg: #fff7e0;
+      --note-border: #ecd9a0;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121614;
+        --surface: #1a201d;
+        --text: #e6ebe7;
+        --muted: #a2ada6;
+        --border: #2c3530;
+        --accent: #3fb46e;
+        --accent-strong: #5ccb88;
+        --accent-text: #0c1a12;
+        --note-bg: #2a2516;
+        --note-border: #4d4325;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+    main { max-width: 760px; margin: 0 auto; padding: 48px 16px 64px; }
+    header { display: flex; align-items: center; gap: 14px; }
+    .dot { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); flex: none; }
+    h1 { font-size: 2rem; line-height: 1.2; margin: 0; }
+    .tagline { color: var(--muted); font-size: 1.15rem; margin: 12px 0 28px; }
+    .download {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px;
+    }
+    .button {
+      display: inline-block; background: var(--accent); color: var(--accent-text);
+      font-weight: 600; text-decoration: none; padding: 12px 22px; border-radius: 8px;
+    }
+    .button:hover, .button:focus-visible { background: var(--accent-strong); }
+    .download p { margin: 0; color: var(--muted); }
+    .download a:not(.button) { color: var(--accent-strong); }
+    h2 { font-size: 1.25rem; margin: 40px 0 8px; }
+    ul { padding-left: 1.2em; margin: 8px 0; }
+    li { margin: 6px 0; }
+    code { font-family: Consolas, ui-monospace, monospace; font-size: 0.92em; overflow-wrap: anywhere; }
+    .note {
+      background: var(--note-bg); border: 1px solid var(--note-border); border-radius: 8px;
+      padding: 12px 16px; margin: 12px 0;
+    }
+    a { color: var(--accent-strong); }
+    footer { margin-top: 48px; color: var(--muted); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="dot" aria-hidden="true"></div>
+      <h1>Nagging Time Tracker</h1>
+    </header>
+    <p class="tagline">A Windows system-tray time tracker that nags you to keep your timesheet honest.</p>
+
+    <section class="download" aria-label="Download">
+      <a class="button" href="https://github.com/bspjojo/nagging-time-tracker/releases/latest/download/NaggingTimeTracker-x64.msi">Download for Windows</a>
+      <p>Latest version · Windows 10 or 11, 64-bit · <a href="https://github.com/bspjojo/nagging-time-tracker/releases">All releases and notes</a></p>
+    </section>
+
+    <h2>What it does</h2>
+    <ul>
+      <li>Start, stop, continue and edit timers from the tray. Each entry has a customer, a task type, an optional link and notes.</li>
+      <li>Run several timers at once, but only on purpose: a second one asks first, and the tray icon shows how many are running.</li>
+      <li>Nags you when nothing is tracked during work hours, checks in while a timer runs, and shows your own scheduled reminders.</li>
+      <li>Notices when you've been away and asks what to do with the idle time.</li>
+      <li>Exports to CSV for timesheets and invoicing elsewhere.</li>
+      <li>Keeps everything on your PC: no account, no sync, no telemetry.</li>
+    </ul>
+
+    <h2>Installing</h2>
+    <ul>
+      <li><strong>Install</strong> installs it just for you, with no admin rights.</li>
+      <li><strong>Advanced</strong> lets you install it for all users of the PC instead (asks for admin rights).</li>
+    </ul>
+    <div class="note">
+      The installer isn't code-signed yet, so Windows SmartScreen may say <em>Windows protected your PC</em>.
+      Choose <strong>More info</strong>, then <strong>Run anyway</strong>.
+    </div>
+
+    <h2>Updating and uninstalling</h2>
+    <ul>
+      <li>To update, download and run the newer installer. It closes the running app first; running timers are kept.</li>
+      <li>Your data lives in <code>%LOCALAPPDATA%\NaggingTimeTracker</code>, with daily backups of the last 7 days. Uninstalling keeps it; delete that folder yourself to remove it.</li>
+      <li>Uninstall from <em>Settings → Apps</em>.</li>
+    </ul>
+
+    <footer>
+      Source code, issues and build instructions: <a href="https://github.com/bspjojo/nagging-time-tracker">github.com/bspjojo/nagging-time-tracker</a>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # Nagging Time Tracker — v1 Windows Tray App
 
-**Status:** In progress — Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phase 7 shipped ([plan-phase7-polish.md](plan-phase7-polish.md)); Phase 8 shipped ([plan-phase8-ui-tests.md](plan-phase8-ui-tests.md)); Phase 9 not started.
+**Status:** Shipped — all 9 phases. Phase 1 shipped ([plan-phase1-scaffold-data.md](plan-phase1-scaffold-data.md)); Phase 2 shipped ([plan-phase2-tracking-tray.md](plan-phase2-tracking-tray.md)); Phase 3 shipped ([plan-phase3-entries-editor.md](plan-phase3-entries-editor.md)); Phase 4 shipped ([plan-phase4-csv-export.md](plan-phase4-csv-export.md)); Phase 5 shipped ([plan-phase5-reminders.md](plan-phase5-reminders.md)); Phase 6 shipped ([plan-phase6-idle-detection.md](plan-phase6-idle-detection.md)); Phase 7 shipped ([plan-phase7-polish.md](plan-phase7-polish.md)); Phase 8 shipped ([plan-phase8-ui-tests.md](plan-phase8-ui-tests.md)); Phase 9 shipped ([plan-phase9-installer.md](plan-phase9-installer.md)).
 
 The repo is greenfield: the only tracked file is [README.md](README.md) (UTF-8; a short project summary pointing at this plan, which Phase 9 extends with build/install docs), with a single `first commit`. Nothing exists to reuse; this plan defines the whole v1 app.
 
@@ -44,6 +44,7 @@ installer/
 tools/
   make-icons.ps1              — generates the tray .ico files (§4)
   build-installer.ps1         — publish + build the MSI (§11)
+  installer-checks/           — run-sandbox.ps1 + guest-checks.ps1: scripted install checks in Windows Sandbox (§11)
   ui-checks/                  — per-phase scripted UI Automation checks (Phases 2–7); kept for what §10 doesn't cover
 Directory.Build.props         — Nullable=enable, TreatWarningsAsErrors=true, LangVersion=latest
 .editorconfig
@@ -529,17 +530,21 @@ Seed data for a test goes through the UI or through pre-populating the temp DB w
 - `Name="Nagging Time Tracker"`, `Manufacturer="Joseph Thompson"`, `Version="$(ProductVersion)"`, and a fixed `UpgradeCode` GUID, generated once and never changed. The wixproj forwards MSBuild properties to WiX preprocessor variables with `<DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>`, and the exe's `<File Source="$(PublishDir)NaggingTimeTracker.exe" />` uses that `PublishDir`.
 - `<MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />`. Installing a newer MSI upgrades in place.
 - A Start Menu shortcut, *Nagging Time Tracker*, in `ProgramMenuFolder`. Its component's key path is a `<RegistryValue Root="HKMU" Key="Software\NaggingTimeTracker" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />` (HKMU resolves to HKCU or HKLM to match the chosen scope), alongside a `<RemoveFolder On="uninstall" />`.
-- An optional "Launch Nagging Time Tracker" checkbox on the exit dialog (`WIXUI_EXITDIALOGOPTIONALCHECKBOX` + a `LaunchApplication` custom action).
+- An optional "Launch Nagging Time Tracker" checkbox on the exit dialog, ticked by default (`WIXUI_EXITDIALOGOPTIONALCHECKBOX=1` + a `LaunchApplication` custom action; UI only, so silent installs never launch the app).
+- The license page WixUI_Advanced always shows displays `installer/License.rtf`, a short as-is notice (stakeholder decision; no repo `LICENSE` file).
+- The shortcut targets `[APPLICATIONFOLDER]NaggingTimeTracker.exe` (ICE69). `ICE57` (the HKMU key path) and `ICE105` (WixToolset.Util's own non-impersonating close-applications action) are suppressed as dual-purpose-package false positives; other warnings stay errors.
 - `<util:CloseApplication Target="NaggingTimeTracker.exe" EndSessionMessage="yes" TerminateProcess="1" RebootPrompt="no" />` (from `WixToolset.Util.wixext`) closes a running instance before upgrade or uninstall. That's safe because running timers are persisted (§4) and the downtime is checked on next launch (§7.3).
-- On uninstall, a `RemoveRegistryValue` for `HKCU\…\Run\NaggingTimeTracker` removes the *uninstalling user's* autostart entry. For an all-users install, other users' Run entries can't be reached from the MSI; the startup self-heal in §8 doesn't apply after uninstall, so those stay behind (documented in the README).
-- `ARPPRODUCTICON` set to `tracking-1.ico`, and an Add/Remove Programs entry.
+- On uninstall, a custom action removes the *uninstalling user's* autostart entry `HKCU\…\Run\NaggingTimeTracker`. It runs `reg.exe delete` through `WixQuietExec` and is deferred and impersonated, so `HKCU` is that user's hive even in an elevated uninstall. It has `Return="ignore"`, because `reg.exe` exits 1 when the value is absent. It's skipped on a major upgrade (`REMOVE~="ALL" AND NOT UPGRADINGPRODUCTCODE`). `RemoveRegistryValue` can't be used: Windows Installer applies it on install, never on uninstall ([plan-phase9-installer.md](plan-phase9-installer.md) §2.2). For an all-users install, other users' Run entries can't be reached from the MSI; the startup self-heal in §8 doesn't apply after uninstall, so those stay behind (documented in the README).
+- `ARPPRODUCTICON` and the shortcut's icon set to `Assets/app.ico` (the exe's icon since Phase 7), and an Add/Remove Programs entry.
 
-**Build script** (`tools/build-installer.ps1`):
+**Build script** (`tools/build-installer.ps1 [-Version x.y.z]`; the wixproj isn't in the solution and refuses to build without `ProductVersion` / `PublishDir`):
 
-1. `dotnet publish src/NaggingTimeTracker.App -c Release -p:PublishProfile=win-x64` (the profile sets `PublishDir` to `bin\publish\win-x64\`)
-2. Reads `<Version>` from the App csproj.
+1. `dotnet publish src/NaggingTimeTracker.App -c Release -p:PublishProfile=win-x64 -p:Version=<v>` into a cleaned `bin\publish\win-x64\`. The profile also sets `DebugType=none` and `AllowedReferenceRelatedFileExtensions=none`, so the folder holds only the exe; `.gitignore` has an exception for this one `*.pubxml`.
+2. The version is `-Version` if given (e.g. a version-bumped MSI for upgrade tests, without editing the csproj), else `<Version>` from the App csproj.
 3. `dotnet build installer/NaggingTimeTracker.Installer.wixproj -c Release -p:ProductVersion=<v> -p:PublishDir=<absolute path of src/NaggingTimeTracker.App/bin/publish/win-x64/, with trailing slash>`
 4. Copies the MSI to `artifacts/NaggingTimeTracker-<v>-x64.msi`. `artifacts/` is git-ignored.
+
+**Install checks:** `tools/installer-checks/run-sandbox.ps1 -Msi <v1> -UpgradeMsi <v2>` runs them in Windows Sandbox, scripted end to end ([plan-phase9-installer.md](plan-phase9-installer.md) §6): per-user install, launch from the shortcut, upgrade while running (the app closes, a running timer survives, the Run value stays), refused downgrade, uninstall (data kept, Run value removed), then all users. The silent per-user steps pass `ALLUSERS=""`, because Sandbox's account is privileged and `ALLUSERS=2` would pick the per-machine folder. The dialogs, UAC and SmartScreen are checked by hand (`-Interactive`, then on a real PC).
 
 **Signing:** none for now. Windows SmartScreen will warn on first run of the MSI (*More info → Run anyway*); the README says so. The script has a clearly marked no-op `# Signing:` step where `signtool sign` for the exe and the MSI goes later.
 
@@ -631,11 +636,11 @@ Each phase is one commit. At the end of every phase, `dotnet build` passes with 
 - [x] The five scenario files in the §10 table, each class marked `[Trait("Category", "UI")]`
 
 ### Phase 9 — Installer
-- [ ] `src/NaggingTimeTracker.App/Properties/PublishProfiles/win-x64.pubxml`: Release, `win-x64`, self-contained, `PublishSingleFile=true`, `IncludeNativeLibrariesForSelfExtract=true`
-- [ ] `installer/NaggingTimeTracker.Installer.wixproj` + `installer/Package.wxs` per §11 (generate the `UpgradeCode` GUID once and commit it)
-- [ ] `tools/build-installer.ps1` per §11; add `artifacts/` to `.gitignore`
-- [ ] Manual install check, recorded in the commit message: per-user install with no UAC, exe lands in `%LOCALAPPDATA%\Programs\NaggingTimeTracker\` (not `…\Apps\…`) → Start Menu shortcut launches → upgrade with a version-bumped MSI while the app is running (the app closes, its running timer survives) → uninstall leaves `%LOCALAPPDATA%\NaggingTimeTracker\` intact and removes the Run value; then repeat the install as all-users (UAC shown, installs to `C:\Program Files\NaggingTimeTracker\`, not `Program Files (x86)`)
-- [ ] Update [README.md](README.md): drop the "planned, not yet implemented" status note; keep the feature summary and add build/test (unit vs UI)/run commands; `tools/build-installer.ps1`; install scope choice; SmartScreen warning for unsigned builds; data and backup locations; uninstall keeps data
+- [x] `src/NaggingTimeTracker.App/Properties/PublishProfiles/win-x64.pubxml`: Release, `win-x64`, self-contained, `PublishSingleFile=true`, `IncludeNativeLibrariesForSelfExtract=true`
+- [x] `installer/NaggingTimeTracker.Installer.wixproj` + `installer/Package.wxs` per §11 (generate the `UpgradeCode` GUID once and commit it)
+- [x] `tools/build-installer.ps1` per §11; add `artifacts/` to `.gitignore`
+- [x] Install check, recorded in the commit message (scripted in Windows Sandbox, plus by hand for the dialogs, UAC and SmartScreen; [plan-phase9-installer.md](plan-phase9-installer.md) §6): per-user install with no UAC, exe lands in `%LOCALAPPDATA%\Programs\NaggingTimeTracker\` (not `…\Apps\…`) → Start Menu shortcut launches → upgrade with a version-bumped MSI while the app is running (the app closes, its running timer survives) → uninstall leaves `%LOCALAPPDATA%\NaggingTimeTracker\` intact and removes the Run value; then repeat the install as all-users (UAC shown, installs to `C:\Program Files\NaggingTimeTracker\`, not `Program Files (x86)`)
+- [x] Update [README.md](README.md): drop the "planned, not yet implemented" status note; keep the feature summary and add build/test (unit vs UI)/run commands; `tools/build-installer.ps1`; install scope choice; SmartScreen warning for unsigned builds; data and backup locations; uninstall keeps data
 
 ---
 

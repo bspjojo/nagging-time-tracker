@@ -1,0 +1,30 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+  <!--
+    Built only by tools/build-installer.ps1, which publishes the app and passes ProductVersion and
+    PublishDir. Not in NaggingTimeTracker.sln, so a plain `dotnet build` doesn't try to build it.
+  -->
+  <PropertyGroup>
+    <OutputName>NaggingTimeTracker</OutputName>
+    <Platform>x64</Platform>
+    <InstallerPlatform>x64</InstallerPlatform>
+    <!--
+      Warnings stay errors. These two ICEs are false positives for a dual-purpose
+      (perUserOrMachine) package:
+      ICE57: the Start Menu component's key path is HKMU on purpose (HKCU per-user, HKLM for all users).
+      ICE105: WixToolset.Util's own Wix4CloseApplicationsDeferred_X64 doesn't impersonate; in a
+              non-elevated per-user install Windows Installer runs it with the user's rights anyway.
+    -->
+    <SuppressIces>ICE57;ICE105</SuppressIces>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);AssetsDir=$(MSBuildThisFileDirectory)..\src\NaggingTimeTracker.App\Assets\</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+  <Target Name="CheckInputs" BeforeTargets="Build">
+    <Error Condition="'$(ProductVersion)' == '' or '$(PublishDir)' == ''"
+           Text="Build this through tools/build-installer.ps1 (ProductVersion and PublishDir are required)." />
+  </Target>
+</Project>

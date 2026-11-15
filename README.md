@@ -2,7 +2,7 @@
 
 A Windows system-tray time tracker that nags you to keep your timesheet honest.
 
-> **Status:** in development. Phases 1–8 of 9 have shipped:
+> **Status:** v1 is complete; all 9 phases have shipped:
 >
 > - **Tray:** start, stop and continue timers, including parallel ones.
 > - **Entries window:** review, filter, edit, delete and add entries.
@@ -17,38 +17,58 @@ A Windows system-tray time tracker that nags you to keep your timesheet honest.
 > - **Backups:** a copy of the database each day you use the app; the newest 7 are kept in
 >   `backups\` next to `tracker.db`.
 > - **Automated UI tests** of the main windows (`tests/NaggingTimeTracker.UiTests`).
+> - **Installer:** an MSI for just you or all users; see [Install](#install).
 >
-> There is no installer yet. The full v1 design lives in
+> The full v1 design lives in
 > [plan-time-tracker-v1.md](plan-time-tracker-v1.md) (phases in §12). Each shipped phase has a
 > detailed plan: [Phase 1](plan-phase1-scaffold-data.md), [Phase 2](plan-phase2-tracking-tray.md),
 > [Phase 3](plan-phase3-entries-editor.md), [Phase 4](plan-phase4-csv-export.md), [Phase 5](plan-phase5-reminders.md),
 > [Phase 6](plan-phase6-idle-detection.md),
-> [Phase 7](plan-phase7-polish.md), [Phase 8](plan-phase8-ui-tests.md). This README gains usage and install instructions as
-> those phases land.
+> [Phase 7](plan-phase7-polish.md), [Phase 8](plan-phase8-ui-tests.md),
+> [Phase 9](plan-phase9-installer.md).
 
-## What v1 will do
+## What it does
 
-- **Track time from the tray.** Start, stop, continue and edit entries. Each entry has a
+- **Tracks time from the tray.** Start, stop, continue and edit entries. Each entry has a
   customer, a task type (Admin, Training, Dev Work, Meetings, …), an optional external task
   link, and notes.
-- **Run several timers at once, but only on purpose.** Starting a second timer asks for
+- **Runs several timers at once, but only on purpose.** Starting a second timer asks for
   confirmation and an optional reason. The tray icon shows clearly when more than one is running.
-- **Nag you:**
+- **Nags you:**
   - when nothing is being tracked during your work hours (overnight shifts are supported)
   - with a periodic "Still working on X?" check-in while a timer runs
   - with custom reminders at set times on chosen weekdays
 
   Nags hold off while you're presenting or using a full-screen app.
-- **Detect idle time.** When you come back after being away, it asks whether to keep the idle
+- **Detects idle time.** When you come back after being away, it asks whether to keep the idle
   time or discard it.
-- **Export to CSV** for timesheets and invoicing elsewhere.
-- **Keep everything local.** Data is stored in a SQLite database in your Windows profile. There
+- **Exports to CSV** for timesheets and invoicing elsewhere.
+- **Keeps everything local.** Data is stored in a SQLite database in your Windows profile. There
   are no accounts, no sync and no telemetry.
 
 ## Tech
 
 C# / WPF on .NET 10, SQLite via EF Core, and a WiX v5 MSI installer that lets you install
 just for yourself (no admin rights) or for all users.
+
+## Install
+
+Run `NaggingTimeTracker-<version>-x64.msi` (build it with `tools\build-installer.ps1`, below).
+
+- **Install** installs just for you: no admin rights, into
+  `%LOCALAPPDATA%\Programs\NaggingTimeTracker\`.
+- **Advanced** offers *for all users* instead: it asks for admin rights and installs into
+  `C:\Program Files\NaggingTimeTracker\`.
+- The builds aren't signed yet, so SmartScreen may say *Windows protected your PC*. Choose
+  *More info → Run anyway*.
+- **Upgrading:** run a newer MSI of the same scope. It closes the running app first; running
+  timers are kept. To switch between just you and all users, uninstall first.
+- **Your data** is per user, whichever scope you chose: `%LOCALAPPDATA%\NaggingTimeTracker\`
+  (`tracker.db`, and `backups\` with the newest 7 daily copies). Uninstalling keeps it; delete
+  the folder yourself to remove it.
+- **Uninstall** from *Settings → Apps*. It also removes your own *Start with Windows* entry (an
+  upgrade keeps it). After an all-users uninstall, other users' *Start with Windows* entries stay
+  until they're removed by hand.
 
 ## Development
 
@@ -72,7 +92,22 @@ dotnet build                              # zero warnings: warnings are errors (
 dotnet test --filter "Category!=UI"       # unit + integration tests
 dotnet test tests/NaggingTimeTracker.UiTests  # UI tests (FlaUI); needs an unlocked desktop
 dotnet run --project src/NaggingTimeTracker.App
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-installer.ps1   # → artifacts\NaggingTimeTracker-<v>-x64.msi
 ```
+
+`build-installer.ps1` publishes a self-contained single-file exe and builds the MSI with WiX
+(restored from NuGet; nothing to install). `-Version 1.0.1` builds another version without
+editing the csproj, e.g. to test an upgrade. To check an installer in Windows Sandbox (install,
+upgrade while running, downgrade refused, uninstall, all users), build two versions and run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\installer-checks\run-sandbox.ps1 `
+  -Msi artifacts\NaggingTimeTracker-1.0.0-x64.msi -UpgradeMsi artifacts\NaggingTimeTracker-1.0.1-x64.msi
+```
+
+It takes 10–15 minutes, opens and closes the Sandbox window on its own, and ends with
+`DONE failed=N`. `-Interactive` just opens Sandbox with the MSI mapped in, for clicking
+through the installer by hand. It needs Windows Sandbox enabled and `python` on `PATH`.
 
 The `Category!=UI` filter leaves out the UI tests, so it's safe anywhere. The UI tests drive the
 built app's windows on a temp `--data-dir`, one test at a time, and take about a minute. They
@@ -114,6 +149,9 @@ and exits with code 1.
 | `src/NaggingTimeTracker.App` | WPF tray app and composition root: tray, quick panel, Entries window, entry editor, Settings window, dialogs, single-instance handling. `Windows/WindowManager.cs` keeps each non-modal window to a single instance. |
 | `tools/make-icons.ps1` | Regenerates the tray icons in `src/NaggingTimeTracker.App/Assets/tray/` and the exe's icon `Assets/app.ico` (16–256 px). Run it with Windows PowerShell 5.1 (`powershell -NoProfile -File tools/make-icons.ps1`), then commit the output. |
 | `tools/ui-checks/` | Per-phase scripted UI Automation checks (Phases 2–7), run by hand on a desktop before each phase's commit. Not part of `dotnet test`; see [tools/ui-checks/README.md](tools/ui-checks/README.md). |
+| `installer/` | WiX v5 MSI: `Package.wxs`, `License.rtf` (the installer's as-is notice). Not in the solution; built by `tools/build-installer.ps1`. |
+| `tools/build-installer.ps1` | Publishes the app (`Properties/PublishProfiles/win-x64.pubxml`) and builds the MSI into `artifacts\` (git-ignored). |
+| `tools/installer-checks/` | `run-sandbox.ps1` (host) and `guest-checks.ps1` (runs inside Windows Sandbox): the scripted install checks. |
 | `tests/NaggingTimeTracker.Tests` | xUnit tests against a real SQLite file per test (`TestDb.cs`). |
 | `tests/NaggingTimeTracker.UiTests` | xUnit + FlaUI tests that launch the built exe (`AppFixture.cs`) and drive the quick panel, Entries window, editor and export. Every class is `[Trait("Category", "UI")]`. |
 

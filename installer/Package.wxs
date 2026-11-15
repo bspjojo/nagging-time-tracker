@@ -3,7 +3,7 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <!-- UpgradeCode: generated once; never change it, or new MSIs won't upgrade old installs. -->
-  <Package Name="Nagging Time Tracker" Manufacturer="Joseph Thompson" Version="$(ProductVersion)"
+  <Package Name="Nagging Time Tracker" Manufacturer="Nagging Time Tracker" Version="$(ProductVersion)"
            UpgradeCode="{F145910A-834C-40F3-B0A0-2B58A0BEC92A}" Scope="perUserOrMachine" Compressed="yes">
     <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
     <MediaTemplate EmbedCab="yes" />

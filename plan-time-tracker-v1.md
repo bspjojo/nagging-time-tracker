@@ -527,7 +527,7 @@ Seed data for a test goes through the UI or through pre-populating the temp DB w
 
 **Package contents (`Package.wxs`):**
 
-- `Name="Nagging Time Tracker"`, `Manufacturer="Joseph Thompson"`, `Version="$(ProductVersion)"`, and a fixed `UpgradeCode` GUID, generated once and never changed. The wixproj forwards MSBuild properties to WiX preprocessor variables with `<DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>`, and the exe's `<File Source="$(PublishDir)NaggingTimeTracker.exe" />` uses that `PublishDir`.
+- `Name="Nagging Time Tracker"`, `Manufacturer="Nagging Time Tracker"`, `Version="$(ProductVersion)"`, and a fixed `UpgradeCode` GUID, generated once and never changed. The wixproj forwards MSBuild properties to WiX preprocessor variables with `<DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir)</DefineConstants>`, and the exe's `<File Source="$(PublishDir)NaggingTimeTracker.exe" />` uses that `PublishDir`.
 - `<MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />`. Installing a newer MSI upgrades in place.
 - A Start Menu shortcut, *Nagging Time Tracker*, in `ProgramMenuFolder`. Its component's key path is a `<RegistryValue Root="HKMU" Key="Software\NaggingTimeTracker" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />` (HKMU resolves to HKCU or HKLM to match the chosen scope), alongside a `<RemoveFolder On="uninstall" />`.
 - An optional "Launch Nagging Time Tracker" checkbox on the exit dialog, ticked by default (`WIXUI_EXITDIALOGOPTIONALCHECKBOX=1` + a `LaunchApplication` custom action; UI only, so silent installs never launch the app).

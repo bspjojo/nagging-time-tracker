@@ -83,7 +83,7 @@ Phase 9 ships the app: a self-contained single-file publish, a WiX v5 MSI that i
 The structure, in WiX v5 syntax (namespaces `http://wixtoolset.org/schemas/v4/wxs`, `/ui`, `/util`):
 
 ```xml
-<Package Name="Nagging Time Tracker" Manufacturer="Joseph Thompson" Version="$(ProductVersion)"
+<Package Name="Nagging Time Tracker" Manufacturer="Nagging Time Tracker" Version="$(ProductVersion)"
          UpgradeCode="{GENERATED-ONCE}" Scope="perUserOrMachine" Compressed="yes">
   <MajorUpgrade DowngradeErrorMessage="A newer version is already installed." />
   <MediaTemplate EmbedCab="yes" />

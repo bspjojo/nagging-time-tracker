@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Navigation;
 using System.Windows.Threading;
 using NaggingTimeTracker.App.ViewModels;
 
@@ -110,6 +112,13 @@ public partial class QuickPanelWindow : Window, IModalHost
         {
             row.FlushNotes();
         }
+    }
+
+    /// <summary>A Running or Recent row's link. Only http(s) URLs are hyperlinks, so this only ever opens a web page.</summary>
+    private void Link_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        e.Handled = true;
+        Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
     }
 
     private sealed class Releaser(QuickPanelWindow owner) : IDisposable

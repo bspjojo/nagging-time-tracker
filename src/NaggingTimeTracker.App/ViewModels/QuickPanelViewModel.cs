@@ -97,7 +97,7 @@ public sealed partial class QuickPanelViewModel : ObservableObject
         foreach (var e in _entries.GetRecentDistinct(RecentCount))
         {
             var label = $"{names.Customer(e.CustomerId)} · {names.TaskType(e.TaskTypeId)}";
-            Recent.Add(new RecentRowViewModel(e.Id, e.ExternalLink is null ? label : $"{label} · {e.ExternalLink}"));
+            Recent.Add(new RecentRowViewModel(e.Id, label, e.ExternalLink));
         }
 
         HasRecent = Recent.Count > 0;

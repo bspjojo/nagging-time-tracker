@@ -53,7 +53,7 @@
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RunningRow" />
-                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
                     </Style>
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
@@ -77,6 +77,18 @@
                                     <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                AutomationProperties.AutomationId="QuickPanel.RunningRow.Label" />
                                 </DockPanel>
+                                <!-- The link, as in Recent rows: clickable for an http(s) URL, plain text otherwise. -->
+                                <TextBlock FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Link}" Margin="0,2,0,0"
+                                           Visibility="{Binding HasWebLink, Converter={StaticResource BoolToVisibility}}">
+                                    <Hyperlink NavigateUri="{Binding LinkUri}" RequestNavigate="Link_RequestNavigate"
+                                               AutomationProperties.AutomationId="QuickPanel.RunningRow.Link">
+                                        <Run Text="{Binding Link, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Link}" FontSize="11" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
+                                           ToolTip="{Binding Link}" Style="{StaticResource Subtle}"
+                                           Visibility="{Binding HasPlainLink, Converter={StaticResource BoolToVisibility}}"
+                                           AutomationProperties.AutomationId="QuickPanel.RunningRow.LinkText" />
                                 <TextBlock Text="{Binding OverlapReason}" FontSize="11"
                                            TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
                                            AutomationProperties.AutomationId="QuickPanel.RunningRow.OverlapReason">
@@ -172,7 +184,7 @@
                 <ItemsControl.ItemContainerStyle>
                     <Style TargetType="ContentPresenter">
                         <Setter Property="AutomationProperties.AutomationId" Value="QuickPanel.RecentRow" />
-                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
+                        <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleName}" />
                     </Style>
                 </ItemsControl.ItemContainerStyle>
                 <ItemsControl.ItemTemplate>
@@ -182,9 +194,24 @@
                                     AutomationProperties.AutomationId="QuickPanel.RecentRow.ContinueButton"
                                     Command="{Binding DataContext.ContinueCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                     CommandParameter="{Binding}" />
-                            <TextBlock Text="{Binding Label}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding Label}"
-                                       AutomationProperties.AutomationId="QuickPanel.RecentRow.Label" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Label}"
+                                           AutomationProperties.AutomationId="QuickPanel.RecentRow.Label" />
+                                <!-- The link on its own line, cut with "…" when long (full text in the tooltip):
+                                     clickable for an http(s) URL, plain text otherwise, as in the Entries grid. -->
+                                <TextBlock FontSize="11" TextTrimming="CharacterEllipsis" ToolTip="{Binding Link}"
+                                           Visibility="{Binding HasWebLink, Converter={StaticResource BoolToVisibility}}">
+                                    <Hyperlink NavigateUri="{Binding LinkUri}" RequestNavigate="Link_RequestNavigate"
+                                               AutomationProperties.AutomationId="QuickPanel.RecentRow.Link">
+                                        <Run Text="{Binding Link, Mode=OneWay}" />
+                                    </Hyperlink>
+                                </TextBlock>
+                                <TextBlock Text="{Binding Link}" FontSize="11" TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding Link}" Style="{StaticResource Subtle}"
+                                           Visibility="{Binding HasPlainLink, Converter={StaticResource BoolToVisibility}}"
+                                           AutomationProperties.AutomationId="QuickPanel.RecentRow.LinkText" />
+                            </StackPanel>
                         </DockPanel>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

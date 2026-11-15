@@ -23,7 +23,7 @@ public static class Seed
     /// never in the future. Customer and task type are found or created by name.
     /// </summary>
     public static long StoppedEntry(
-        string dataDir, string customer, string taskType, TimeSpan startAgo, TimeSpan stopAgo, string notes = "")
+        string dataDir, string customer, string taskType, TimeSpan startAgo, TimeSpan stopAgo, string notes = "", string? link = null)
     {
         long id;
         using (var sp = new ServiceCollection()
@@ -46,6 +46,7 @@ public static class Seed
                 StartUtc = now - startAgo,
                 StopUtc = now - stopAgo,
                 Notes = notes,
+                ExternalLink = link,
                 CreatedUtc = now,
                 UpdatedUtc = now,
             }).Id;

@@ -6,7 +6,7 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>NaggingTimeTracker</AssemblyName>
     <RootNamespace>NaggingTimeTracker.App</RootNamespace>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <!-- LibraryImport (GetLastInputInfo, §7.1) needs it. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
